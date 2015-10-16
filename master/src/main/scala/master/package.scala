@@ -25,9 +25,13 @@ package object master {
     def toIPString : String = {l.map{_.toString}.mkString(".")}
   }
 
+  type slaveID = Int
+
   class Master {
     var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
+    var slaveSocket : Map[slaveID, Socket] = Map.empty
+    var id2IP : Map[slaveID, String] = Map.empty
     val port : Int = 5959
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
     def start(slaveNum : Int) {
@@ -40,6 +44,8 @@ package object master {
           val client = sock.accept
           acceptNum = acceptNum + 1
           println("Connected")
+          slaveSocket = slaveSocket + (acceptNum -> client)
+          id2IP = id2IP + (acceptNum -> client.getRemoteSocketAddress().toString().toIPList.toIPString)
           val t = new Thread(new masterHandle(client, this))
           addSlaveThread(t)
           t.start()
