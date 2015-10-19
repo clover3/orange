@@ -2,6 +2,7 @@ import java.net._
 import java.io._
 import scala.io._
 import scala.util.control.Breaks._
+import scala.util.Sorting
 
 package object master {
 /*  class IA(val ipAddress : String) {
@@ -24,6 +25,23 @@ package object master {
   implicit class ListCompanionOps(val l: List[Int]) extends AnyVal {
     def toIPString : String = {l.map{_.toString}.mkString(".")}
   }
+
+  //merging input data from each slaves
+//  implicit class MergingInputData(val threads){
+//
+//  }
+
+
+  //sorting the merged input data
+//  implicit class SortingKey(val d : List[List[Int]]){
+//
+//
+//    object AskiOrdering extends Ordering[Dataclass] {
+//      def compare(a:Dataclass, b:Dataclass) = a.key compare b.key //maybe comparing function will be re-definited
+//    }
+//
+//    Sorting.quickSort(d)(AskicodeOrdering)
+//  }
 
   type slaveID = Int
 
