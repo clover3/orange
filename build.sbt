@@ -3,6 +3,12 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.7"
 )
 
+lazy val common = (project in file("common")).
+  settings(commonSettings: _*).
+  settings(
+    name := "orangeCommon"
+  )
+
 lazy val master = (project in file("master")).
   settings(commonSettings: _*).
   settings(
