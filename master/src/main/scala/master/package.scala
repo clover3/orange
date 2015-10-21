@@ -3,6 +3,7 @@ import java.io._
 import scala.io._
 import scala.util.control.Breaks._
 import scala.util.Sorting
+import Array._
 
 package object master {
 /*  class IA(val ipAddress : String) {
@@ -32,16 +33,42 @@ package object master {
 //  }
 
 
-  //sorting the merged input data
-//  implicit class SortingKey(val d : List[List[Int]]){
-//
-//
-//    object AskiOrdering extends Ordering[Dataclass] {
-//      def compare(a:Dataclass, b:Dataclass) = a.key compare b.key //maybe comparing function will be re-definited
-//    }
-//
-//    Sorting.quickSort(d)(AskicodeOrdering)
-//  }
+  //sorting the merged input data from buffer
+  implicit class SortingKey(val d : Array[String]) {
+
+    def QuickSort(a: Array[String], first: Int, last: Int) {
+      var f: Int = first
+      // f and i are index
+      var l: Int = last
+      var pivot: String = ""
+
+      if (last - first > 0) {
+        //quicksort
+        pivot = a(f)
+        while (l > f) {
+          while ((a(f) compareTo pivot) <=0 && f <= last && l > f) {
+            f += 1
+          }
+          while ((a(l) compareTo pivot) >0 && l >= first && l >= f) {
+            l -= 1
+          }
+          if (l > f) {
+            swap(a, l, f)
+          }
+        }
+      }
+    }
+
+      def swap(array: Array[String], a: Int, b: Int){
+      var tmp: String = array(a)
+      array(a) = array(b)
+      array(b) = tmp
+    }
+
+    QuickSort(d,0,100) //example 100;
+
+  }
+
 
   type slaveID = Int
 
@@ -55,6 +82,9 @@ package object master {
     def start(slaveNum : Int) {
       val sock = new ServerSocket(port)
       var acceptNum = 0
+//      val s :String = "asd"
+//      val d :String = "asdf"
+//      println(s.compareTo(d))
       println("Listening...")
       breakable {
         while (true) {
