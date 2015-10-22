@@ -4,7 +4,7 @@ import java.nio.Buffer
 import java.nio.channels._
 
 import scala.io._
-//import common.typedef._
+import common.typedef._
 
 package object slave {
 
@@ -20,7 +20,7 @@ package object slave {
       -> exchangeBuffer( Buffer -> Buffer )  : Uses socket
       -> toPartition( Buffer -> Partitions )
   */
-/*
+
   trait SlaveCalculation {
     val master: String
     val inputDirs : List[String]
@@ -98,7 +98,6 @@ package object slave {
     // parse buffer to make Partitions
     def toPartition(samplesBuffer: Buffer) : Partitions
   }
-*/
 
   class Slave (val master : String, val outputDir : String) {
     val (masterIPAddr, masterPort) : (String, Int) = {
