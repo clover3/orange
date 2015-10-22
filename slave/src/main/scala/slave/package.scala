@@ -105,7 +105,10 @@ package object slave {
 
 
       // recieves buffer containing samples and returns buffer containing partitions
-      def exchangeSample(samplesBuffer: Buffer): Buffer = ???
+      def exchangeSample(samplesBuffer: Buffer): Buffer = {
+        //  { slave object }.sendAndRecvOnce(samplesBuffer)
+        ???
+      }
 
       // parse buffer to make Partitions
       def toPartition(samplesBuffer: Buffer): Partitions = ???
@@ -125,8 +128,11 @@ package object slave {
     def addinputDir(inDir : String) = {
         inputDir = inDir::inputDir
     }
-    def sendOnce(buffer : ByteBuffer) : Unit = {
-      sock.write(buffer) 
+    def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
+      sock.write(buffer)
+      buffer.clear()
+      sock.read(buffer)
+      buffer
     }
 
   }

@@ -125,11 +125,13 @@ package object master {
       sock.read(buffer)
 // input buffer handler(consider partition range...?)
 // and consider write buffer content..
+// below case jest test...
 
         println("hihihihhii")
         println(buffer.get(0))
         buffer.clear()
-        sock.write(buffer)
+//        sock.write(buffer)
+        sock.write(ByteBuffer.wrap("hi!".getBytes()))
 
 ////////////////////////////////////////////////////
 
@@ -144,9 +146,7 @@ package object master {
                                                                                                                                                                                                                                                                                                                
     def run()
     {
-//      this.synchronized {
-//      master.addIPList(cSocket.getRemoteSocketAddress().toString())
-//      }
+      
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
       val inOutBuffer = ByteBuffer.allocate(1024 * 1029)
