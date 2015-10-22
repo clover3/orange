@@ -35,18 +35,57 @@ package object slave {
     // Calls 'getSamples' and 'exchangeSamples'
     def getPartition : Partitions
 
+
     // getSamples
-    // Role : 1. decides how many keys to extract from each key
+    // Role : 1. decides how many keys to extract from each file
     //        2.
-    def getSamples : List[Sample]
+    def getSamples : List[Sample] = {
+      val keyPerFile = totalSampleKey / getNumFiles
+      def getFileList(dirPath : String) : List[File] ={
+        val d = new File(dirPath)
+        if( d.exists && d.isDirectory )
+          d.listFiles.filter(_.isFile).toList
+        else
+          throw new FileNotFoundException
+      }
+      val fileList = inputDirs.flatMap(getFileList)
+      var numListPre = for( i <- List.range(0, getNumFiles) ) yield keyPerFile
+      var numList = numListPre.head + (totalSampleKey % getNumFiles) :: numListPre.tail
+      assert((numList.size == fileList.size))
+      fileList.zip(numList)
+      List()
+    }
 
     // counts the number of files in the input directories
-    def getNumFiles : Int
+    def getNumFiles : Int = {
+      def getNumFilesInDir(dir: String) : Int = {
+        val d = new File(dir)
+        if( d.exists && d.isDirectory )
+          d.listFiles.filter(_.isFile).length
+        else
+          0
+      }
+      val n = inputDirs.foldRight(0)( (dir, sum) => sum + getNumFilesInDir(dir) )
+      if( n == 0 )
+        throw new FileNotFoundException
+      else
+        n
+    }
+
 
     // get a sample from speicified file path
-    def getSample(filePath : String, numSamples : Int) : Sample
+    def getSample(filePath : String, numSamples : Int) : Sample =
+    {
+      val file = new File(filePath)
+      val numLines = Source.fromFile(file).getLines().size
+      val fstream: Stream[String] = Source.fromFile(file).getLines().toStream;
+      val keyList = fstream.take(numSamples).map(parseLine).toList
+      (numLines, keyList)
+    }
     // parseLine gets line containing both key and value, and return only key string
-    def parseLine(line : String) : String
+    def parseLine(line : String) : String = {
+      line.split(' ')(0)
+    }
 
     def exchangeSample(samples : List[Sample]) : Partitions
 
