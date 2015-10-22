@@ -1,6 +1,7 @@
 import java.net._
 import java.io._
 import java.nio.channels._
+import java.nio._
 import scala.io._
 import scala.util.control.Breaks._
 import scala.util.Sorting
@@ -93,11 +94,11 @@ package object master {
       breakable {
         while (true) {
           if(acceptNum >= slaveNum) {sock.close(); break}
-          val client = sock.accept()
+          val client = server.accept()
           acceptNum = acceptNum + 1
           println("Connected")
-          addIPList(client.getRemoteSocketAddress().toString())
-          val slave = new Slave(acceptNum, client, client.getRemoteSocketAddress().toString().toIPList.toIPString)
+          addIPList(client.socket().getRemoteSocketAddress().toString())
+          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
@@ -118,7 +119,7 @@ package object master {
   }
   
 
-  class Slave (val id : slaveID, val sock : Socket, val ip : String) extends Runnable {
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
     def givePartition(buffer : ByteBuffer) = {
       buffer.clear()
       while(sock.read(buffer) != -1) {
@@ -138,7 +139,7 @@ package object master {
 //      }
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val inOutBuffer = ByteBuffer.allocatedDirect(1024)
+      val inOutBuffer = ByteBuffer.allocate(1024)
       givePartition(inOutBuffer)
 
       sock.close()
