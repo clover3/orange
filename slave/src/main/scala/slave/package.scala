@@ -31,7 +31,9 @@ package object slave {
     // getPartition
     // Role : reads local files and connects to server and receives partition
     // Calls 'getSamples' and 'exchangeSamples'
-    def getPartition : Partitions
+    def getPartition : Partitions = {
+      exchangeSample(getSamples)
+    }
 
 
     // getSamples
@@ -47,11 +49,10 @@ package object slave {
           throw new FileNotFoundException
       }
       val fileList = inputDirs.flatMap(getFileList)
-      var numListPre = for( i <- List.range(0, getNumFiles) ) yield keyPerFile
-      var numList = numListPre.head + (totalSampleKey % getNumFiles) :: numListPre.tail
+      val numListPre = for( i <- List.range(0, getNumFiles) ) yield keyPerFile
+      val numList = numListPre.head + (totalSampleKey % getNumFiles) :: numListPre.tail
       assert((numList.size == fileList.size))
-      fileList.zip(numList)
-      List()
+      fileList.zip(numList).map( pair => getSample(pair._1, pair._2) )
     }
 
     // counts the number of files in the input directories
@@ -72,9 +73,8 @@ package object slave {
 
 
     // get a sample from speicified file path
-    def getSample(filePath : String, numSamples : Int) : Sample =
+    def getSample(file : File, numSamples : Int) : Sample =
     {
-      val file = new File(filePath)
       val numLines = Source.fromFile(file).getLines().size
       val fstream: Stream[String] = Source.fromFile(file).getLines().toStream;
       val keyList = fstream.take(numSamples).map(parseLine).toList
