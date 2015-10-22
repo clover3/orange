@@ -1,5 +1,6 @@
 import java.net._
 import java.io._
+import java.nio._
 import java.nio.Buffer
 import java.nio.channels._
 
@@ -112,8 +113,9 @@ package object slave {
     def addinputDir(inDir : String) = {
         inputDir = inDir::inputDir
     }
-    def start = {
-
+    def sendOnce(buffer : ByteBuffer) : Unit = {
+      sock.write(buffer) 
     }
+
   }
 }

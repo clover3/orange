@@ -122,14 +122,24 @@ package object master {
   class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
     def givePartition(buffer : ByteBuffer) = {
       buffer.clear()
-      while(sock.read(buffer) != -1) {
+      sock.read(buffer)
 // input buffer handler(consider partition range...?)
 // and consider write buffer content..
 
+        println("hihihihhii")
+        println(buffer.get(0))
+        buffer.clear()
+        sock.write(buffer)
+
 ////////////////////////////////////////////////////
-      sock.write(buffer)
+
+/*        if(buffer.hasRemaining()) {
+        buffer.compact()
+        } else {
+        buffer.clear
+        }
+  */    
       
-      }
     }
                                                                                                                                                                                                                                                                                                                
     def run()
@@ -139,9 +149,9 @@ package object master {
 //      }
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val inOutBuffer = ByteBuffer.allocate(1024)
-      givePartition(inOutBuffer)
+      val inOutBuffer = ByteBuffer.allocate(1024 * 1029)
 
+      givePartition(inOutBuffer)
       sock.close()
     }
   }
