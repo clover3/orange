@@ -1,5 +1,7 @@
 import java.net._
 import java.io._
+import java.nio.channels._
+import java.nio._
 import scala.io._
 import scala.util.control.Breaks._
 import scala.util.Sorting
@@ -72,15 +74,18 @@ package object master {
 
   type slaveID = Int
 
-  class Master {
+  object Master {
     var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
-    var slaveSocket : Map[slaveID, Socket] = Map.empty
-    var id2IP : Map[slaveID, String] = Map.empty
+    var id2Slave : Map[slaveID, Slave] = Map.empty
     val port : Int = 5959
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
     def start(slaveNum : Int) {
-      val sock = new ServerSocket(port)
+      val server = ServerSocketChannel.open()
+      val sock = server.socket()
+      sock.bind(new InetSocketAddress(port))
+
+
       var acceptNum = 0
 //      val s :String = "asd"
 //      val d :String = "asdf"
@@ -89,12 +94,13 @@ package object master {
       breakable {
         while (true) {
           if(acceptNum >= slaveNum) {sock.close(); break}
-          val client = sock.accept
+          val client = server.accept()
           acceptNum = acceptNum + 1
           println("Connected")
-          slaveSocket = slaveSocket + (acceptNum -> client)
-          id2IP = id2IP + (acceptNum -> client.getRemoteSocketAddress().toString().toIPList.toIPString)
-          val t = new Thread(new masterHandle(client, this))
+          addIPList(client.socket().getRemoteSocketAddress().toString())
+          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString)
+          id2Slave = id2Slave + (acceptNum -> slave)
+          val t = new Thread(slave)
           addSlaveThread(t)
           t.start()
         }
@@ -112,15 +118,33 @@ package object master {
 
   }
   
-  class masterHandle(val cSocket : Socket, val master : Master) extends Runnable {
+
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
+    def givePartition(buffer : ByteBuffer) = {
+      buffer.clear()
+      while(sock.read(buffer) != -1) {
+// input buffer handler(consider partition range...?)
+// and consider write buffer content..
+
+////////////////////////////////////////////////////
+      sock.write(buffer)
+      
+      }
+    }
+                                                                                                                                                                                                                                                                                                               
     def run()
     {
-      this.synchronized {
-      master.addIPList(cSocket.getRemoteSocketAddress().toString())
-      }
+//      this.synchronized {
+//      master.addIPList(cSocket.getRemoteSocketAddress().toString())
+//      }
       println("Hi!")
-      cSocket.close()
+// just example!  I don't know buffer capacity uuu..
+      val inOutBuffer = ByteBuffer.allocate(1024)
+      givePartition(inOutBuffer)
+
+      sock.close()
     }
   }
+
 
 }
