@@ -13,12 +13,12 @@ lazy val master = (project in file("master")).
   settings(commonSettings: _*).
   settings(
     name := "orangeMaster"
-  )
+  ).dependsOn(common)
 
 
 lazy val slave = (project in file("slave")).
   settings(commonSettings: _*).
   settings(
     name := "orangeSlave"
-  )
+  ).dependsOn(common)
 
