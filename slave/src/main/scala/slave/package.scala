@@ -1,8 +1,10 @@
 import java.net._
 import java.io._
 import java.nio.Buffer
+import java.nio.channels._
+
 import scala.io._
-import common.typedef._
+//import common.typedef._
 
 package object slave {
 
@@ -18,7 +20,7 @@ package object slave {
       -> exchangeBuffer( Buffer -> Buffer )  : Uses socket
       -> toPartition( Buffer -> Partitions )
   */
-
+/*
   trait SlaveCalculation {
     val master: String
     val inputDirs : List[String]
@@ -57,7 +59,7 @@ package object slave {
     // parse buffer to make Partitions
     def toPartition(samplesBuffer: Buffer) : Partitions
   }
-
+*/
 
   class Slave (val master : String, val outputDir : String) {
     val (masterIPAddr, masterPort) : (String, Int) = {
@@ -67,7 +69,7 @@ package object slave {
         case _ => throw new Exception("IP error")
       }
     }
-    val sock = new Socket(masterIPAddr, masterPort)
+    val sock = SocketChannel.open(new InetSocketAddress(masterIPAddr, masterPort))
     var inputDir : List[String] = Nil
     def addinputDir(inDir : String) = {
         inputDir = inDir::inputDir
