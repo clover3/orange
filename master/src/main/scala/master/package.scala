@@ -16,7 +16,7 @@ package object master {
   implicit class StringCompanionOps(val s: String) extends AnyVal {
     def toIPList : List[Int] = {
       val R = "/(.*):[0-9]+".r
-      val R2 = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})""".r
+      val R2 = """(\d{1,3})\.(\d{1,3})\.( \d{1,3})\.(\d{1,3})""".r
       s match {
         case R(ip) => {ip.split('.').map(_.toInt).toList}
         case R2(ip1,ip2,ip3,ip4) => List(ip1.toInt, ip2.toInt, ip3.toInt, ip4.toInt)
@@ -70,7 +70,7 @@ package object master {
     QuickSort(d,0,100) //example 100;
 
   }
-// make partion to each Ip ( K°³)
+// make partion to each Ip ( count is K)
   class makePartiotions(val d : Array[String], val ips : Array[String]){ // d = sorted input sample
     val x = d.length
     val y = ips.length
