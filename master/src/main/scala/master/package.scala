@@ -70,6 +70,19 @@ package object master {
     QuickSort(d,0,100) //example 100;
 
   }
+// make partion to each Ip ( K°³)
+  class makePartiotions(val d : Array[String], val ips : Array[String]){ // d = sorted input sample
+    val x = d.length
+    val y = ips.length
+    val z = x/y
+    var a = 0;
+    for(a <- 0 to y-1 ){
+//      Partitions[a] = Partition( ips[a], d[a*z], a[a*z + z-1]  )  //partition(ip, start, end)
+    }
+
+
+  }
+
 
 
   type slaveID = Int
@@ -87,9 +100,6 @@ package object master {
 
 
       var acceptNum = 0
-//      val s :String = "asd"
-//      val d :String = "asdf"
-//      println(s.compareTo(d))
       println("Listening...")
       breakable {
         while (true) {

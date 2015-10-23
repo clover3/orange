@@ -5,7 +5,10 @@ import java.nio.{ByteBuffer, Buffer}
 package object typedef {
 
   ///////////// Common Definition - must be shared between master and slave /////////////////////
-  class Partition
+
+  class Partition(val ip : String, val Startkey : String, val Endkey : String)
+    extends (String, String, String)(ip,Startkey,Endkey){
+  }
   type Partitions = List[Partition]
   // Sample = (Number of total records, sampled records)
   type Sample = (Int, List[String])
