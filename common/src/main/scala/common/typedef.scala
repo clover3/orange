@@ -14,6 +14,11 @@ package object typedef {
   type Sample = (Int, List[String])
   type Samples = List[Sample]
 
+  //read from buffer to Array[String]
+  implicit class SampleToBuffer (val samples : ByteBuffer) {
+
+  }
+
   implicit class SampleCompanionOps(val sample: Sample) extends AnyVal  {
     // write down List[Samples] to buffer
     def toBuffer : ByteBuffer = {
@@ -23,7 +28,7 @@ package object typedef {
       val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
 
       val byteArr: Array[Byte] = numKeys.toByte +: byteArrArr.flatten
-
+  // numKey + keys....
       ByteBuffer.wrap(byteArr)
     }
   }

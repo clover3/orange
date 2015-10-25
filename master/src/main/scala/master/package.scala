@@ -6,12 +6,19 @@ import scala.io._
 import scala.util.control.Breaks._
 import scala.util.Sorting
 import Array._
+import scala.collection.mutable.ArrayBuffer
+import common.typedef._
 
 package object master {
 /*  class IA(val ipAddress : String) {
  *     def toIntList: List[Int] = ???
  * }
  */
+  trait Master{
+  def getPartition: Partitions
+  def getSamples: Sample
+  def SamplesToBuffer(Samples) : ArrayBuffer[String]
+}
 
   implicit class StringCompanionOps(val s: String) extends AnyVal {
     def toIPList : List[Int] = {
@@ -33,7 +40,6 @@ package object master {
 //  implicit class MergingInputData(val threads){
 //
 //  }
-
 
   //sorting the merged input data from buffer
   implicit class SortingKey(val d : Array[String]) {
@@ -130,13 +136,15 @@ package object master {
   
 
   class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
+    var Sampledatas =ArrayBuffer[String]()
+    def SamplesToBuffer (buffer)
     def givePartition(buffer : ByteBuffer) = {
       buffer.clear()
       sock.read(buffer)
+      Sampledatas += buffer.toString
 // input buffer handler(consider partition range...?)
 // and consider write buffer content..
 // below case jest test...
-
         println("hihihihhii")
         println(buffer.get(0))
         buffer.clear()
