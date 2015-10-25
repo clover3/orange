@@ -13,10 +13,6 @@ package object typedef {
   type Sample = (Int, List[String])
   type Samples = List[Sample]
 
-  //read from SampleList (ByteBuffer) to Array[String]
-  implicit class SampleToBuffer (val samples : ByteBuffer) {
-
-  }
 
   class BufferCorruptedException extends Exception
 
@@ -25,9 +21,17 @@ package object typedef {
   def parsePartitionBuffer(buf : ByteBuffer) : Partitions = {
     ???
   }
+//partitions to Buffer To write (Ip , key[10],key[10])
+  implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
+    def toBuffer : ByteBuffer = {
+      //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )
+      var sum : String =""
 
-  implicit class PartitionCompanionOps(val partition: Partition) extends AnyVal {
-    def toBuffer : ByteBuffer = ???
+      partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
+      val byteArr: Array[Byte] = sum.getBytes
+      ByteBuffer.wrap(byteArr)
+
+    }
   }
 
 

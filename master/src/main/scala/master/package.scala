@@ -12,8 +12,6 @@ import common.typedef._
 import java.lang.Thread
 import scala.concurrent.Future
 import scala.concurrent._
-import ExecutionContext.Implicits.global
-//import scala.async.Async._
 import scala.util.{Failure, Success}
 import scala.util.Random
 
@@ -111,13 +109,13 @@ package object master {
       var a = 0
       for (a<-0 to (y-1)){
         if (a == 0) {
-//          Partitions[a] = Partition(ips[0], "           !", d[a * z + z - 1] ) //aski?????
+//          Partitions = Partitions::(Partition(ips[0], "           !", d[a * z + z - 1] ) )//aski?????
         }
         else if(a==(y-1)){
-//          Partitions[a] = Partition(ips[a], d[a*z], "~~~~~~~~~~" )  //aski
+//          Partitions = Partitions::(Partition(ips[a], d[a*z], "~~~~~~~~~~" ))  //aski
         }
         else{
-//          Partitions[a] = Partition( ips[a], d[a*z], d[a*z + z-1]  )
+//          Partitions = Partitions::(Partition( ips[a], d[a*z], d[a*z + z-1]  ))
         }
       }
 
@@ -142,6 +140,7 @@ package object master {
 
     //ParseBuffer and Convert to String and Save to Array{string]
     def ParseBuffer(buffer: ByteBuffer) = {
+
 
     }
 
