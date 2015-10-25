@@ -5,7 +5,6 @@ import java.nio.{ByteBuffer, Buffer}
 package object typedef {
 
   ///////////// Common Definition - must be shared between master and slave /////////////////////
-
   class Partition(val ip : String, val Startkey : String, val Endkey : String)
     extends (String, String, String)(ip,Startkey,Endkey){
   }
@@ -14,21 +13,60 @@ package object typedef {
   type Sample = (Int, List[String])
   type Samples = List[Sample]
 
-  //read from buffer to Array[String]
+  //read from SampleList (ByteBuffer) to Array[String]
   implicit class SampleToBuffer (val samples : ByteBuffer) {
 
+  }
+
+  class BufferCorruptedException extends Exception
+
+  // This function receives buffer parsed by  PartitionCompnionOps
+  // buffer contains Parition information
+  def parsePartitionBuffer(buf : ByteBuffer) : Partitions = {
+    ???
+  }
+
+  implicit class PartitionCompanionOps(val partition: Partition) extends AnyVal {
+    def toBuffer : ByteBuffer = ???
+  }
+
+
+  def parseSampleBuffer(buf : ByteBuffer) : Sample = {
+      val arr:Array[Byte] = buf.array()
+      val numTotalKey = ByteBuffer.wrap(arr.slice(0,4)).getInt()
+      val numSampleKey = ByteBuffer.wrap(arr.slice(4,8)).getInt()
+      val expectLen = 8 + numSampleKey * 10
+      if( arr.length != expectLen ) {
+        throw new BufferCorruptedException
+      }
+      else{
+        val offset = 8
+        val keyArrList = for {
+          b <- Range(0, numSampleKey)
+        } yield  arr.slice(offset + b*10, offset + b*10 + 10 )
+        val keyList = keyArrList.map(bArr => bArr.mkString).toList
+        (numSampleKey, keyList)
+      }
   }
 
   implicit class SampleCompanionOps(val sample: Sample) extends AnyVal  {
     // write down List[Samples] to buffer
     def toBuffer : ByteBuffer = {
-      val numKeys : Int = sample._1
+      val numTotalKeys = sample._1
+      val numTotalKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
+
+      val numKeys = sample._2.length
+      val numKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numKeys).array()
 
       val keyList = sample._2
       val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
 
+
       val byteArr: Array[Byte] = numKeys.toByte +: byteArrArr.flatten
   // numKey + keys....
+
+      val byteArr: Array[Byte] = numTotalKeyArr ++: numKeyArr ++: byteArrArr.flatten
+
       ByteBuffer.wrap(byteArr)
     }
   }

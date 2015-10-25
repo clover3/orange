@@ -19,7 +19,6 @@ package object slave {
    -> exchangeSample( List[Sample] -> Partitions )
       -> toBuffer( List[Sample] -> Buffer )
       -> exchangeBuffer( Buffer -> Buffer )  : Uses socket
-      -> toPartition( Buffer -> Partitions )
   */
 
   trait SlaveCalculation {
@@ -29,15 +28,13 @@ package object slave {
     def exchangeSample(samples: Sample): Partitions
     // recieves buffer containing samples and returns buffer containing partitions
     def exchangeSample(samplesBuffer: Buffer) : Buffer
-    // parse buffer to make Partitions
-    def toPartition(samplesBuffer: Buffer) : Partitions
   }
 
   object SlaveCalculation {
-    def apply() = new SlaveCalculation {
-      val master: String = ???
-      val inputDirs: List[String] = ???
-      val ouputDir: String = ???
+    def apply(master_arg:String, inputDirs_arg:List[String], outputDir_arg:String) = new SlaveCalculation {
+      val master: String = master_arg
+      val inputDirs: List[String] = inputDirs_arg
+      val ouputDir: String = outputDir_arg
 
       // number of keys for slave to send to server this number of keys' size sum up to 1MB
       val totalSampleKey: Int = 100 * 1024
@@ -101,17 +98,19 @@ package object slave {
         line.split(' ')(0)
       }
 
-      def exchangeSample(samples: Sample): Partitions = ???
+      def exchangeSample(samples: Sample): Partitions = {
+        parsePartitionBuffer(exchangeSample(samples.toBuffer))
+      }
 
 
       // recieves buffer containing samples and returns buffer containing partitions
-      def exchangeSample(samplesBuffer: Buffer): Buffer = {
+      def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
         //  { slave object }.sendAndRecvOnce(samplesBuffer)
         ???
       }
 
-      // parse buffer to make Partitions
-      def toPartition(samplesBuffer: Buffer): Partitions = ???
+      // recieves buffer containing samples and returns buffer containing partitions
+      def exchangeSample(samplesBuffer: Buffer): Buffer = ???
     }
   }
 

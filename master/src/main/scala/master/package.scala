@@ -9,21 +9,26 @@ import Array._
 import scala.collection.mutable.ArrayBuffer
 import common.typedef._
 
+import java.lang.Thread
+import scala.concurrent.Future
+import scala.concurrent._
+import ExecutionContext.Implicits.global
+//import scala.async.Async._
+import scala.util.{Failure, Success}
+import scala.util.Random
+
 package object master {
 /*  class IA(val ipAddress : String) {
  *     def toIntList: List[Int] = ???
  * }
  */
-  trait Master{
-  def getPartition: Partitions
-  def getSamples: Sample
-  def SamplesToBuffer(Samples) : ArrayBuffer[String]
-}
+
+
 
   implicit class StringCompanionOps(val s: String) extends AnyVal {
     def toIPList : List[Int] = {
       val R = "/(.*):[0-9]+".r
-      val R2 = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})""".r
+      val R2 = """(\d{1,3})\.(\d{1,3})\.( \d{1,3})\.(\d{1,3})""".r
       s match {
         case R(ip) => {ip.split('.').map(_.toInt).toList}
         case R2(ip1,ip2,ip3,ip4) => List(ip1.toInt, ip2.toInt, ip3.toInt, ip4.toInt)
@@ -36,69 +41,28 @@ package object master {
     def toIPString : String = {l.map{_.toString}.mkString(".")}
   }
 
-  //merging input data from each slaves
-//  implicit class MergingInputData(val threads){
-//
-//  }
-
-  //sorting the merged input data from buffer
-  implicit class SortingKey(val d : Array[String]) {
-
-    def QuickSort(a: Array[String], first: Int, last: Int) {
-      var f: Int = first
-      // f and i are index
-      var l: Int = last
-      var pivot: String = ""
-
-      if (last - first > 0) {
-        //quicksort
-        pivot = a(f)
-        while (l > f) {
-          while ((a(f) compareTo pivot) <=0 && f <= last && l > f) {
-            f += 1
-          }
-          while ((a(l) compareTo pivot) >0 && l >= first && l >= f) {
-            l -= 1
-          }
-          if (l > f) {
-            swap(a, l, f)
-          }
-        }
-      }
-    }
-
-      def swap(array: Array[String], a: Int, b: Int){
-      var tmp: String = array(a)
-      array(a) = array(b)
-      array(b) = tmp
-    }
-
-    QuickSort(d,0,100) //example 100;
-
-  }
-// make partion to each Ip ( K°³)
-  class makePartiotions(val d : Array[String], val ips : Array[String]){ // d = sorted input sample
-    val x = d.length
-    val y = ips.length
-    val z = x/y
-    var a = 0;
-    for(a <- 0 to y-1 ){
-//      Partitions[a] = Partition( ips[a], d[a*z], a[a*z + z-1]  )  //partition(ip, start, end)
-    }
-
-
-  }
 
 
 
   type slaveID = Int
 
+
+
   object Master {
     var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
     var id2Slave : Map[slaveID, Slave] = Map.empty
+    var KeyArray : Array[String] = empty // save sample datas from each slaves
+    var IpArray : Array[String] = empty // save IPs from
+//    var partition : Partition = Nil
+//    var partitions : Partitions =Nil
     val port : Int = 5959
+
+
+    var Samples : List[String] = Nil
+
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
+
     def start(slaveNum : Int) {
       val server = ServerSocketChannel.open()
       val sock = server.socket()
@@ -114,7 +78,7 @@ package object master {
           acceptNum = acceptNum + 1
           println("Connected")
           addIPList(client.socket().getRemoteSocketAddress().toString())
-          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString)
+          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString, KeyArray, IpArray)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
@@ -122,26 +86,79 @@ package object master {
         }
       }
     }
+
+
     def addIPList(ipaddr : String) {
       object IPOrdering extends Ordering[List[Int]] {
         def compare(a : List[Int], b:List[Int]) = a.head compare b.head
       }
       ipAddrList = (ipaddr::ipAddrList).map(_.toIPList).sorted(IPOrdering).map(_.toIPString)
     }
+
     def addSlaveThread(t : Thread) {
       slaveThread = t :: slaveThread
+    }
+
+    // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
+    def sorting_Key (){
+      val d = KeyArray
+      val ips = IpArray
+      Sorting.quickSort(d)
+
+      val x = d.length
+      val y = ips.length
+      val z = x/y   // assume that Datas are uniform
+      var a = 0
+      for (a<-0 to (y-1)){
+        if (a == 0) {
+//          Partitions[a] = Partition(ips[0], "           !", d[a * z + z - 1] ) //aski?????
+        }
+        else if(a==(y-1)){
+//          Partitions[a] = Partition(ips[a], d[a*z], "~~~~~~~~~~" )  //aski
+        }
+        else{
+//          Partitions[a] = Partition( ips[a], d[a*z], d[a*z + z-1]  )
+        }
+      }
+
+    }
+
+    //send partitions for each slaves
+    def SendPartitions (): Unit ={
+
     }
 
   }
   
 
-  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
-    var Sampledatas =ArrayBuffer[String]()
-    def SamplesToBuffer (buffer)
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val Key : Array[String], val arrIp : Array[String]) extends Runnable {
+    /*
+    readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
+    ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
+         Sort & (Array[String] ->Partition-> Partitions)
+    ->Write(Partitions->buffer)
+
+     */
+
+    //ParseBuffer and Convert to String and Save to Array{string]
+    def ParseBuffer(buffer: ByteBuffer) = {
+
+    }
+
+    //read key and ip  & save those to Array{string]
+    def readSampleData(buffer : ByteBuffer) ={
+      buffer.clear()
+      sock.read(buffer)
+      ParseBuffer(buffer)
+
+    }
+
+
+
     def givePartition(buffer : ByteBuffer) = {
       buffer.clear()
       sock.read(buffer)
-      Sampledatas += buffer.toString
+      //Sampledatas += buffer.toString
 // input buffer handler(consider partition range...?)
 // and consider write buffer content..
 // below case jest test...
@@ -151,6 +168,7 @@ package object master {
 //        sock.write(buffer)
         sock.write(ByteBuffer.wrap("hi!".getBytes()))
 
+
 ////////////////////////////////////////////////////
 
 /*        if(buffer.hasRemaining()) {
@@ -158,18 +176,20 @@ package object master {
         } else {
         buffer.clear
         }
-  */    
-      
+  */
     }
+
                                                                                                                                                                                                                                                                                                                
     def run()
     {
       
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val inOutBuffer = ByteBuffer.allocate(1024 * 1029)
+      val Buffer = ByteBuffer.allocate(1024 * 1024* 1024 * 1024 * 1024)
+      readSampleData(Buffer)
 
-      givePartition(inOutBuffer)
+
+      //givePartition(inOutBuffer)
       sock.close()
     }
   }
