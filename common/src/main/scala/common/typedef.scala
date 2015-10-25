@@ -18,8 +18,26 @@ package object typedef {
 
   // This function receives buffer parsed by  PartitionCompnionOps
   // buffer contains Parition information
-  def parsePartitionBuffer(buf : ByteBuffer) : Partitions = {
-    ???
+  def parsePartitionBuffer(buf : ByteBuffer , slaveNum : Int) : Partitions = {
+    val arr:Array[Byte] = buf.array()
+    val Ipoffset : Int = 15
+    val StartKeyoffset : Int = 10
+    val EndKeyoffset : Int = 10
+    val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
+    val expectLen = (Ipoffset+ StartKeyoffset + EndKeyoffset) * slaveNum
+    if (arr.length != expectLen){
+      throw new BufferCorruptedException
+    } else{
+      val PartitionList = for{
+        (b :Int)<- (0, slaveNum)
+      } yield {
+          (arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString , arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
+        }
+      val partitions = PartitionList
+      partitions
+
+    }
+
   }
 //partitions to Buffer To write (Ip , key[10],key[10])
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
