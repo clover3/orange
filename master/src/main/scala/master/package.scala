@@ -50,6 +50,8 @@ package object master {
     var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
     var id2Slave : Map[slaveID, Slave] = Map.empty
+    var KeyList : List[String] = Nil
+    var IpList : List[String] = Nil
     var KeyArray : Array[String] = empty // save sample datas from each slaves
     var IpArray : Array[String] = empty // save IPs from
 //    var partition : Partition = Nil
@@ -76,7 +78,7 @@ package object master {
           acceptNum = acceptNum + 1
           println("Connected")
           addIPList(client.socket().getRemoteSocketAddress().toString())
-          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString, KeyArray, IpArray)
+          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString, KeyList, IpList)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
@@ -99,6 +101,7 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
+      KeyArray = KeyList.toArray
       val d = KeyArray
       val ips = IpArray
       Sorting.quickSort(d)
@@ -124,13 +127,14 @@ package object master {
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
+      //PartitionCompanionOps(partitions)
 
     }
 
   }
   
 
-  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val Key : Array[String], val arrIp : Array[String]) extends Runnable {
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val KeyList : List[String], val IpList : Array[List]) extends Runnable {
     /*
     readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
     ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
@@ -141,7 +145,8 @@ package object master {
 
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
-
+//      val sample : Sample = parseSampleBuffer(buffer)
+//      KeyList = KeyList :: sample._2
 
     }
 
