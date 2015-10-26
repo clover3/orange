@@ -17,13 +17,14 @@ package object typedef {
   class BufferCorruptedException extends Exception
 
   // This function receives buffer parsed by  PartitionCompnionOps
-  // buffer contains Parition information
-  def parsePartitionBuffer(buf : ByteBuffer , slaveNum : Int) : Partitions = {
+  // buffer contains Parition information (buffer -> Partitions)
+  def parsePartitionBuffer(buf : ByteBuffer ) : Partitions = {
     val arr:Array[Byte] = buf.array()
     val Ipoffset : Int = 15
     val StartKeyoffset : Int = 10
     val EndKeyoffset : Int = 10
     val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
+    val slaveNum :Int= arr.length/ totalOffset
     val expectLen = (Ipoffset+ StartKeyoffset + EndKeyoffset) * slaveNum
     if (arr.length != expectLen){
       throw new BufferCorruptedException
@@ -39,7 +40,7 @@ package object typedef {
     }
 
   }
-//partitions to Buffer To write (Ip , key[10],key[10])
+//partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
     def toBuffer : ByteBuffer = {
       //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )

@@ -7,7 +7,7 @@ import scala.util.control.Breaks._
 import scala.util.Sorting
 import Array._
 import scala.collection.mutable.ArrayBuffer
-import common.typedef._
+//import common.typedef._
 
 import java.lang.Thread
 import scala.concurrent.Future
@@ -105,7 +105,8 @@ package object master {
 
       val x = d.length
       val y = ips.length
-      val z = x/y   // assume that Datas are uniform
+      if(y!=0){val z = x/y }  // assume that Datas are uniform
+
       var a = 0
       for (a<-0 to (y-1)){
         if (a == 0) {
@@ -121,7 +122,7 @@ package object master {
 
     }
 
-    //send partitions for each slaves
+    //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
 
     }
@@ -138,7 +139,7 @@ package object master {
 
      */
 
-    //ParseBuffer and Convert to String and Save to Array{string]
+    //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
 
 
