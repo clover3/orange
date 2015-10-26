@@ -99,7 +99,7 @@ package object slave {
       }
 
       def exchangeSample(samples: Sample): Partitions = {
-        parsePartitionBuffer(exchangeSample(samples.toBuffer))
+        parsePartitionBuffer(exchangeSample(samples.toBuffer),3)
       }
 
 

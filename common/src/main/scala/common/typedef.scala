@@ -30,11 +30,11 @@ package object typedef {
       throw new BufferCorruptedException
     } else{
       val PartitionList = for{
-        (b :Int)<- (0, slaveNum)
+        (b :Int)<- Range(0, slaveNum)
       } yield {
-          (arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString , arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
+          new Partition(arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString , arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
         }
-      val partitions = PartitionList
+      val partitions : Partitions = PartitionList.toList
       partitions
 
     }
@@ -84,13 +84,15 @@ package object typedef {
       val keyList = sample._2
       val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
 
-
-      val byteArr: Array[Byte] = numKeys.toByte +: byteArrArr.flatten
   // numKey + keys....
 
       val byteArr: Array[Byte] = numTotalKeyArr ++: numKeyArr ++: byteArrArr.flatten
 
       ByteBuffer.wrap(byteArr)
+    }
+    def print: Unit = {
+      println("Num of Keys : " + sample._1)
+      sample._2.map( key => println(key))
     }
   }
   implicit class SampleListCompanionOps(val s: List[Sample]) extends AnyVal {
