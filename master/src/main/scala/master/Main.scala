@@ -1,14 +1,14 @@
 package master
 
-//import common.typedef._
 
-import scala.util.Sorting
+
+//import common.typedef._
 
 
 object Main {
   
   def main(args: Array[String]) = {
-    val server = Master;
+    val server = Master
 //    var myArray : Array[String] = new Array[String](3)
 //    myArray  = Array( "qat$}h(0]-" ,"maU5d)o?#t", "--R9@v&d-5")
 //    myArray.foreach(x=>println(x))

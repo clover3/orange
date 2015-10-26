@@ -7,19 +7,22 @@ import scala.util.control.Breaks._
 import scala.util.Sorting
 import Array._
 import scala.collection.mutable.ArrayBuffer
-//import common.typedef._
+import common.typedef._
+import common._
+
+
 
 import java.lang.Thread
-import scala.concurrent.Future
-import scala.concurrent._
 import scala.util.{Failure, Success}
 import scala.util.Random
 
 package object master {
 /*  class IA(val ipAddress : String) {
  *     def toIntList: List[Int] = ???
+ *
  * }
  */
+
 
 
 
@@ -54,8 +57,8 @@ package object master {
     var IpList : List[String] = Nil
     var KeyArray : Array[String] = empty // save sample datas from each slaves
     var IpArray : Array[String] = empty // save IPs from
-//    var partition : Partition = Nil
-//    var partitions : Partitions =Nil
+    var partition : Partition = new Partition("","","")
+    var partitions : Partitions =Nil
     val port : Int = 5959
 
 
@@ -113,13 +116,13 @@ package object master {
       var a = 0
       for (a<-0 to (y-1)){
         if (a == 0) {
-//          Partitions = Partitions::(Partition(ips[0], "           !", d[a * z + z - 1] ) )//aski?????
+//          partitions = partitions::(Partition(ips[0], "           !", d[a * z + z - 1] ) )//aski?????
         }
         else if(a==(y-1)){
-//          Partitions = Partitions::(Partition(ips[a], d[a*z], "~~~~~~~~~~" ))  //aski
+//          partitions = partitions::(Partition(ips[a], d[a*z], "~~~~~~~~~~" ))  //aski
         }
         else{
-//          Partitions = Partitions::(Partition( ips[a], d[a*z], d[a*z + z-1]  ))
+//          partitions = partitions::(Partition( ips[a], d[a*z], d[a*z + z-1]  ))
         }
       }
 
@@ -128,7 +131,7 @@ package object master {
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
       //PartitionCompanionOps(partitions)
-
+      //slaveThread.foreach(x=>x.)
     }
 
   }
@@ -145,8 +148,8 @@ package object master {
 
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
-//      val sample : Sample = parseSampleBuffer(buffer)
-//      KeyList = KeyList :: sample._2
+      val sample : Sample = parseSampleBuffer(buffer)
+      KeyList :: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
 
     }
 
@@ -183,6 +186,9 @@ package object master {
         }
   */
     }
+    def write(partitions : Partitions): Unit ={
+      sock.write(PartitionCompanionOps(partitions))
+    }
 
                                                                                                                                                                                                                                                                                                                
     def run()
@@ -195,7 +201,7 @@ package object master {
 
 
       //givePartition(inOutBuffer)
-      sock.close()
+      //sock.close()
     }
   }
 

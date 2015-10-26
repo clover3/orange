@@ -1,11 +1,9 @@
-import java.net._
 import java.io._
-import java.nio._
-import java.nio.Buffer
+import java.net._
+import java.nio.{Buffer, _}
 import java.nio.channels._
-
-import scala.io._
 import common.typedef._
+import scala.io._
 
 package object slave {
 
