@@ -20,74 +20,79 @@ package object typedef {
 
   // This function receives buffer parsed by  PartitionCompnionOps
   // buffer contains Parition information (buffer -> Partitions)
-  def parsePartitionBuffer(buf: ByteBuffer): Partitions = {
-    val arr: Array[Byte] = buf.array()
-    val Ipoffset: Int = 15
-    val StartKeyoffset: Int = 10
-    val EndKeyoffset: Int = 10
-    val totalOffset: Int = Ipoffset + StartKeyoffset + EndKeyoffset
-    val slaveNum: Int = arr.length / totalOffset
-    val expectLen = (Ipoffset + StartKeyoffset + EndKeyoffset) * slaveNum
-    if (arr.length != expectLen) {
+  def parsePartitionBuffer(buf : ByteBuffer ) : Partitions = {
+    val arr:Array[Byte] = buf.array()
+    val Ipoffset : Int = 15
+    val StartKeyoffset : Int = 10
+    val EndKeyoffset : Int = 10
+    val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
+    val slaveNum :Int= arr.length/ totalOffset
+    val expectLen = (Ipoffset+ StartKeyoffset + EndKeyoffset) * slaveNum
+    if (arr.length != expectLen){
       throw new BufferCorruptedException
-    } else {
-      val PartitionList = for {
-        (b: Int) <- Range(0, slaveNum)
+    } else{
+      val PartitionList = for{
+        (b :Int)<- Range(0, slaveNum)
       } yield {
-          new Partition(arr.slice(b * totalOffset, b * totalOffset + Ipoffset).toString, arr.slice(b * totalOffset + Ipoffset, b * totalOffset + Ipoffset + StartKeyoffset).toString, arr.slice(b * totalOffset + Ipoffset + StartKeyoffset, b * totalOffset + Ipoffset + StartKeyoffset + EndKeyoffset).toString)
+          new Partition(arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,
+                        arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString ,
+                        arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
         }
-      val partitions: Partitions = PartitionList.toList
+      val partitions : Partitions = PartitionList.toList
       partitions
 
     }
 
   }
-
-  //partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
-  def PartitionCompanionOps(partitions: Partitions) : ByteBuffer ={
+//partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
+  implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
+    def toByteBuffer : ByteBuffer = {
       //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )
-      var sum: String = ""
+      var sum : String =""
 
-      partitions.foreach(x => sum += x._1 + x._2 + x._3)
+      partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
       val byteArr: Array[Byte] = sum.getBytes
-      //toBuffer.clear()
       ByteBuffer.wrap(byteArr)
 
     }
-
-
-
-  def parseSampleBuffer(buf: ByteBuffer): Sample = {
-    val arr: Array[Byte] = buf.array()
-    val numTotalKey = ByteBuffer.wrap(arr.slice(0, 4)).getInt()
-    val numSampleKey = ByteBuffer.wrap(arr.slice(4, 8)).getInt()
-    val expectLen = 8 + numSampleKey * 10
-    if (arr.length != expectLen) {
-      throw new BufferCorruptedException
-    }
-    else {
-      val offset = 8
-      val keyArrList = for {
-        b <- Range(0, numSampleKey)
-      } yield arr.slice(offset + b * 10, offset + b * 10 + 10)
-      val keyList = keyArrList.map(bArr => bArr.mkString).toList
-      (numSampleKey, keyList)
-    }
+    def print = {
+      partitions.foreach(x => println("ip:"+ x.ip + " st:"+ x.Startkey + " ed:" + x.Endkey))
+    } 
   }
 
-  implicit class SampleCompanionOps(val sample: Sample) extends AnyVal {
+
+
+  def parseSampleBuffer(buf : ByteBuffer) : Sample = {
+      val arr:Array[Byte] = buf.array()
+      val numTotalKey = ByteBuffer.wrap(arr.slice(0,4)).getInt()
+      val numSampleKey = ByteBuffer.wrap(arr.slice(4,8)).getInt()
+      val expectLen = 8 + numSampleKey * 10
+      if( arr.length != expectLen ) {
+        throw new BufferCorruptedException
+      }
+      else{
+        val offset = 8
+        val keyArrList = for {
+          b <- Range(0, numSampleKey)
+        } yield  arr.slice(offset + b*10, offset + b*10 + 10 )
+        val keyList = keyArrList.map(bArr => bArr.mkString).toList
+        (numSampleKey, keyList)
+      }
+  }
+
+  implicit class SampleCompanionOps(val sample: Sample) extends AnyVal  {
     // write down List[Samples] to buffer
-    def toBuffer: ByteBuffer = {
+    def toBuffer : ByteBuffer = {
       val numTotalKeys = sample._1
-      val numTotalKeyArr: Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
+      val numTotalKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
 
       val numKeys = sample._2.length
-      val numKeyArr: Array[Byte] = ByteBuffer.allocate(4).putInt(numKeys).array()
+      val numKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numKeys).array()
 
       val keyList = sample._2
-      val byteArrArr: Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
+      val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
 
-      // numKey + keys....
+  // numKey + keys....
 
       val byteArr: Array[Byte] = numTotalKeyArr ++: numKeyArr ++: byteArrArr.flatten
 

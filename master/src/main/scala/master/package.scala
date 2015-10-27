@@ -137,7 +137,7 @@ package object master {
   }
   
 
-  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val KeyList : List[String], val IpList : Array[List]) extends Runnable {
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val KeyList : List[String], val IpList : List[String]) extends Runnable {
     /*
     readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
     ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
@@ -187,7 +187,8 @@ package object master {
   */
     }
     def write(partitions : Partitions): Unit ={
-      sock.write(PartitionCompanionOps(partitions))
+      val buf:ByteBuffer = partitions.toByteBuffer;
+      sock.write(buf)
     }
 
                                                                                                                                                                                                                                                                                                                

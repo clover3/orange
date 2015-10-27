@@ -25,18 +25,20 @@ package object slave {
     def parseLine(line: String): String
     def exchangeSample(samples: Sample): Partitions
     // recieves buffer containing samples and returns buffer containing partitions
-    def exchangeSample(samplesBuffer: Buffer) : Buffer
+    def exchangeSample(samplesBuffer: ByteBuffer) : ByteBuffer
   }
 
   object SlaveCalculation {
-    def apply(master_arg:String, inputDirs_arg:List[String], outputDir_arg:String) = new SlaveCalculation {
-      val master: String = master_arg
+    def apply(slaveSock: =>SlaveSocket, inputDirs_arg:List[String], outputDir_arg:String) = new SlaveCalculation {
+      def slaveSocket: SlaveSocket = slaveSock
       val inputDirs: List[String] = inputDirs_arg
       val ouputDir: String = outputDir_arg
 
+
       // number of keys for slave to send to server this number of keys' size sum up to 1MB
       val totalSampleKey: Int = 100 * 1024
-
+      //val totalSampleKey: Int = 22
+      val linePerFile = 327680
 
       // getPartition
       // Role : reads local files and connects to server and receives partition
@@ -49,6 +51,8 @@ package object slave {
       // getSamples
       // Role : 1. decides how many keys to extract from each file
       //        2.
+      // If number of key is not divided by number of files
+      // modulus remaining keys are taken from first file
       def getSamples: Sample = {
         val keyPerFile = totalSampleKey / getNumFiles
         def getFileList(dirPath: String): List[File] = {
@@ -82,37 +86,52 @@ package object slave {
           n
       }
 
-
       // get a sample from speicified file path
       def getSample(file: File, numSamples: Int): Sample = {
-        val numLines = Source.fromFile(file).getLines().size
+        // to avoid reading whole file
+        //val numLines = Source.fromFile(file).getLines().size
+        val numLines = linePerFile
         val fstream: Stream[String] = Source.fromFile(file).getLines().toStream;
         val keyList = fstream.take(numSamples).map(parseLine).toList
         (numLines, keyList)
       }
 
       // parseLine gets line containing both key and value, and return only key string
+      //line.slice(0,10)   : Key
+      //line.slice(13,44)  : Index
+      //line.slice(46,98)  : Value
       def parseLine(line: String): String = {
-        line.split(' ')(0)
+        line.slice(0,10)
       }
 
       def exchangeSample(samples: Sample): Partitions = {
-        parsePartitionBuffer(exchangeSample(samples.toBuffer),3)
+        parsePartitionBuffer(exchangeSample(samples.toBuffer))
       }
-
 
       // recieves buffer containing samples and returns buffer containing partitions
       def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
-        //  { slave object }.sendAndRecvOnce(samplesBuffer)
-        ???
+        slaveSocket.sendAndRecvOnce(samplesBuffer)
       }
-
-      // recieves buffer containing samples and returns buffer containing partitions
-      def exchangeSample(samplesBuffer: Buffer): Buffer = ???
     }
   }
 
-  class Slave (val master : String, val outputDir : String) {
+  class Slave (val master : String, val inputDirs : List[String], val outputDir : String) {
+    val slaveSocket = new SlaveSocket(master)
+    var inputDir: List[String] = Nil
+
+    def addinputDir(inDir: String) = {
+      inputDir = inDir :: inputDir
+    }
+
+    def run() = {
+      val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
+      val partitions = slaveCalculation.getPartition
+      println( partitions.length )
+    }
+  }
+
+  class SlaveSocket(val master : String)
+  {
     val (masterIPAddr, masterPort) : (String, Int) = {
       val ipR = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):([0-9]+)""".r
       master match {
@@ -121,16 +140,12 @@ package object slave {
       }
     }
     val sock = SocketChannel.open(new InetSocketAddress(masterIPAddr, masterPort))
-    var inputDir : List[String] = Nil
-    def addinputDir(inDir : String) = {
-        inputDir = inDir::inputDir
-    }
+
     def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
       sock.write(buffer)
       buffer.clear()
       sock.read(buffer)
       buffer
     }
-
   }
 }
