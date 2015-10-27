@@ -119,7 +119,7 @@ package object master {
       var a :Int = 0
       for (a<- Range(0, y-1)){
         if (a == 0) {
-           partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions/
+           partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions
         }
         else if(a==(y-1)){
           var add : Partition = new Partition(ips(y-1), d(a*z), 127.toChar.toString*10)
@@ -200,7 +200,7 @@ package object master {
       
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val Buffer = ByteBuffer.allocate(1024 * 1024* 1024 * 1024 * 1024)
+      val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
       readSampleData(Buffer)
 
 
