@@ -1,20 +1,12 @@
 import java.net._
-import java.io._
-import java.nio.channels._
 import java.nio._
-import scala.io._
-import scala.util.control.Breaks._
-import scala.util.Sorting
-import Array._
-import scala.collection.mutable.ArrayBuffer
+import java.nio.channels._
+
 import common.typedef._
-import common._
 
-
-
-import java.lang.Thread
-import scala.util.{Failure, Success}
-import scala.util.Random
+import scala.Array._
+import scala.util.Sorting
+import scala.util.control.Breaks._
 
 package object master {
 /*  class IA(val ipAddress : String) {
@@ -116,13 +108,14 @@ package object master {
       var a :Int = 0
       for (a<- Range(0, y-1)){
         if (a == 0) {
-           partitions = partitions::(new Partition(ips(0), "           !", d(a * z + z - 1) ) )//aski?????
+           partitions = (new Partition(ips(0), "           !", d(a*z + z-1) ) )::partitions//aski?????
         }
         else if(a==(y-1)){
-            partitions = partitions::(new Partition(ips(y-1), d(a*z), "~~~~~~~~~~" ))  //aski
+          var add : Partition = new Partition(ips(y-1), d(a*z), "~~~~~~~~~~" )
+            partitions = add :: partitions //aski
         }
         else{
-           partitions = partitions::(new Partition( ips(a), d(a*z), d(a*z + z-1)  ))
+           partitions = (new Partition( ips(a), d(a*z), d(a*z + z-1)  ))::partitions
         }
       }
 
