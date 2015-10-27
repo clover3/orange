@@ -47,8 +47,9 @@ package object master {
     var id2Slave : Map[slaveID, Slave] = Map.empty
     var KeyList : List[String] = Nil
     var IpList : List[String] = Nil
+    var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
     var KeyArray : Array[String] = empty // save sample datas from each slaves
-    var IpArray : Array[String] = empty // save IPs from
+    var IpArray : Array[String] = ipAddrList.toArray // save IPs from
     var partition : Partition = new Partition("","","")
     var partitions : Partitions =Nil
     val port : Int = 5959
@@ -60,7 +61,13 @@ package object master {
 
     def start(slaveNum : Int) {
       val server = ServerSocketChannel.open()
-      val sock = server.socket()
+      val sock  = server.socket()
+
+
+      //val pool : ExecutorService = Executors.newFixedThreadPool(slaveNum) //ThreadPool
+
+
+
       sock.bind(new InetSocketAddress(port))
 
 
@@ -70,14 +77,18 @@ package object master {
         while (true) {
           if(acceptNum >= slaveNum) {sock.close(); break}
           val client = server.accept()
+          ClientsocketList = client :: ClientsocketList
+
           acceptNum = acceptNum + 1
           println("Connected")
           addIPList(client.socket().getRemoteSocketAddress().toString())
           val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString, KeyList, IpList)
+          //pool.execute(slave)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
           t.start()
+
         }
       }
     }
@@ -108,14 +119,14 @@ package object master {
       var a :Int = 0
       for (a<- Range(0, y-1)){
         if (a == 0) {
-           partitions = (new Partition(ips(0), "           !", d(a*z + z-1) ) )::partitions//aski?????
+           partitions = new Partition(ips(0), "           !", d(a*z + z-1) ) ::partitions//aski?????
         }
         else if(a==(y-1)){
           var add : Partition = new Partition(ips(y-1), d(a*z), "~~~~~~~~~~" )
             partitions = add :: partitions //aski
         }
         else{
-           partitions = (new Partition( ips(a), d(a*z), d(a*z + z-1)  ))::partitions
+           partitions = new Partition( ips(a), d(a*z), d(a*z + z-1) )::partitions
         }
       }
 
@@ -123,19 +134,19 @@ package object master {
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
-      //PartitionCompanionOps(partitions)
-      //slaveThread.foreach(x=>x.)
+      PartitionCompanionOps(partitions)
+      ClientsocketList.foreach(x=>x.write(ByteBuffer))
     }
 
   }
   
 
   class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val KeyList : List[String], val IpList : List[String]) extends Runnable {
-    /*
+    /* *********STructure ********
     readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
     ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
          Sort & (Array[String] ->Partition-> Partitions)
-    ->Write(Partitions->buffer)
+    ->Write(Partitions->buffer) (((In server ,not each thread)))
 
      */
 
@@ -179,10 +190,11 @@ package object master {
         }
   */
     }
-    def write(partitions : Partitions): Unit ={
-      val buf:ByteBuffer = partitions.toByteBuffer;
-      sock.write(buf)
-    }
+
+//    def write(partitions : Partitions): Unit ={
+//      val buf:ByteBuffer = partitions.toByteBuffer;
+//      sock.write(buf)
+//    }
 
                                                                                                                                                                                                                                                                                                                
     def run()
