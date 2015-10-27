@@ -87,17 +87,12 @@ package object typedef {
       val numTotalKey = ByteBuffer.wrap(arr.slice(0,4)).getInt()
       val numSampleKey = ByteBuffer.wrap(arr.slice(4,8)).getInt()
       val expectLen = 8 + numSampleKey * 10
-      if( arr.length != expectLen ) {
-        throw new BufferCorruptedException
-      }
-      else{
-        val offset = 8
-        val keyArrList = for {
-          b <- Range(0, numSampleKey)
+      val offset = 8
+      val keyArrList = for {
+        b <- Range(0, numSampleKey)
         } yield  arr.slice(offset + b*10, offset + b*10 + 10 )
         val keyList = keyArrList.map(bArr => new String(bArr,"UTF-8") ).toList
         (numTotalKey, keyList)
-      }
   }
 
   implicit class SampleCompanionOps(val sample: Sample) extends AnyVal  {
