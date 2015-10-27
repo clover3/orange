@@ -38,7 +38,7 @@ package object typedef {
           val idx1 = idx0 + Ipoffset
           val idx2 = idx1 + StartKeyoffset
           val idx3 = idx2 + EndKeyoffset
-          new Partition(new String(arr.slice(idx0, idx1), "UTF-8"),
+          new Partition(new String(arr.slice(idx0, idx1), "UTF-8").trim,
                         new String(arr.slice(idx1, idx2), "UTF-8"),
                         new String(arr.slice(idx2, idx3), "UTF-8"))
         }
