@@ -200,7 +200,7 @@ package object master {
       
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val Buffer = ByteBuffer.allocate(1024 * 1024* 1024 * 1024 * 1024)
+      val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
       readSampleData(Buffer)
 
 
