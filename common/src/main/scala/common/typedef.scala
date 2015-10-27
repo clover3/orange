@@ -46,7 +46,7 @@ package object typedef {
   }
 //partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
-    def toBuffer : ByteBuffer = {
+    def toByteBuffer : ByteBuffer = {
       //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )
       var sum : String =""
 

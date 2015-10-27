@@ -187,7 +187,8 @@ package object master {
   */
     }
     def write(partitions : Partitions): Unit ={
-      sock.write(PartitionCompanionOps(partitions))
+      val buf:ByteBuffer = partitions.toByteBuffer;
+      sock.write(buf)
     }
 
                                                                                                                                                                                                                                                                                                                
