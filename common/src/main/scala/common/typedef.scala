@@ -95,8 +95,8 @@ package object typedef {
         val keyArrList = for {
           b <- Range(0, numSampleKey)
         } yield  arr.slice(offset + b*10, offset + b*10 + 10 )
-        val keyList = keyArrList.map(bArr => bArr.mkString).toList
-        (numSampleKey, keyList)
+        val keyList = keyArrList.map(bArr => new String(bArr,"UTF-8") ).toList
+        (numTotalKey, keyList)
       }
   }
 
@@ -106,15 +106,15 @@ package object typedef {
       val numTotalKeys = sample._1
       val numTotalKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
 
-      val numKeys = sample._2.length
-      val numKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numKeys).array()
+      val numSampleKeys = sample._2.length
+      val numSampleKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numSampleKeys).array()
 
       val keyList = sample._2
-      val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
+      val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes("UTF-8")).toArray
 
   // numKey + keys....
 
-      val byteArr: Array[Byte] = numTotalKeyArr ++: numKeyArr ++: byteArrArr.flatten
+      val byteArr: Array[Byte] = numTotalKeyArr ++: numSampleKeyArr ++: byteArrArr.flatten
 
       ByteBuffer.wrap(byteArr)
     }
