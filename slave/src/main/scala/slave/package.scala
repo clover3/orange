@@ -54,7 +54,7 @@ package object slave {
       // If number of key is not divided by number of files
       // modulus remaining keys are taken from first file
       def getSamples: Sample = {
-        val keyPerFile = totalSampleKey / getNumFiles
+
         def getFileList(dirPath: String): List[File] = {
           val d = new File(dirPath)
           if (d.exists && d.isDirectory)
@@ -62,10 +62,14 @@ package object slave {
           else
             throw new FileNotFoundException
         }
-        val fileList = inputDirs.flatMap(getFileList)
+
+        val keyPerFile = totalSampleKey / getNumFiles
         val numListPre = for (i <- List.range(0, getNumFiles)) yield keyPerFile
         val numList = numListPre.head + (totalSampleKey % getNumFiles) :: numListPre.tail
+
+        val fileList = inputDirs.flatMap(getFileList)
         assert((numList.size == fileList.size))
+
         val sampleList = fileList.zip(numList).map(pair => getSample(pair._1, pair._2))
         sampleList.toSample
       }
@@ -91,8 +95,8 @@ package object slave {
         // to avoid reading whole file
         //val numLines = Source.fromFile(file).getLines().size
         val numLines = linePerFile
-        val fstream: Stream[String] = Source.fromFile(file).getLines().toStream;
-        val keyList = fstream.take(numSamples).map(parseLine).toList
+        val fileStream: Stream[String] = Source.fromFile(file).getLines().toStream;
+        val keyList = fileStream.take(numSamples).map(parseLine).toList
         (numLines, keyList)
       }
 
@@ -118,10 +122,6 @@ package object slave {
   class Slave (val master : String, val inputDirs : List[String], val outputDir : String) {
     val slaveSocket = new SlaveSocket(master)
     var inputDir: List[String] = Nil
-
-    def addinputDir(inDir: String) = {
-      inputDir = inDir :: inputDir
-    }
 
     def run() = {
       val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
