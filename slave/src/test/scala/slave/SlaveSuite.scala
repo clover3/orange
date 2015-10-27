@@ -23,8 +23,9 @@ class SlaveSuite extends FunSuite {
                           new Partition("192.168.1.1", "AsfAGHM5om", "~sHd0jDv6X")
     )
     val buf = p1.toByteBuffer
+    //val buf = PartitionCompanionOps(p1)
     val p2 = parsePartitionBuffer(buf)
 
-    assert(p1 == p2)
+    assert(p1== p2)
   }
 }
