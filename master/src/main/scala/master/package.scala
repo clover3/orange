@@ -14,6 +14,10 @@ package object master {
  *
  * }
  */
+  var KeyList : List[String] = Nil
+  var partition : Partition = new Partition("","","")
+  var partitions : Partitions =Nil
+
 
 
 
@@ -45,13 +49,11 @@ package object master {
     var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
     var id2Slave : Map[slaveID, Slave] = Map.empty
-    var KeyList : List[String] = Nil
-    var IpList : List[String] = Nil
     var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
     var KeyArray : Array[String] = empty // save sample datas from each slaves
     var IpArray : Array[String] = ipAddrList.toArray // save IPs from
-    var partition : Partition = new Partition("","","")
-    var partitions : Partitions =Nil
+    partition  = new Partition("","","")
+    partitions =Nil
     val port : Int = 5959
 
 
@@ -62,6 +64,7 @@ package object master {
     def start(slaveNum : Int) {
       val server = ServerSocketChannel.open()
       val sock  = server.socket()
+      KeyList =Nil
 
 
       //val pool : ExecutorService = Executors.newFixedThreadPool(slaveNum) //ThreadPool
@@ -75,20 +78,21 @@ package object master {
       println("Listening...")
       breakable {
         while (true) {
-          if(acceptNum >= slaveNum) {sock.close(); break}
+          if(acceptNum >= slaveNum) { break}
+          println("slaveNum",slaveNum)
           val client = server.accept()
           ClientsocketList = client :: ClientsocketList
 
           acceptNum = acceptNum + 1
           println("Connected")
           addIPList(client.socket().getRemoteSocketAddress().toString())
-          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString, KeyList, IpList)
+          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString)
           //pool.execute(slave)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
           t.start()
-
+          //break;
         }
       }
     }
@@ -107,16 +111,20 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      KeyArray = KeyList.toArray
+      println("before convert d", KeyList)
+      KeyArray =KeyList.map(x=>x.mkString).toArray
+
       val d = KeyArray
-      val ips = IpArray
+      val ips = ipAddrList.toArray
+      println("before sorting d", KeyArray)
       Sorting.quickSort(d)
+      println("sorting d", d)
 
       val x = d.length
       val y = ips.length
       assert(y != 0)
       val z = x/y   // assume that Datas are uniform
-
+print("z",z)
       var a :Int = 0
       for (a<- Range(0, y-1)){
         if (a == 0) {
@@ -130,17 +138,19 @@ package object master {
            partitions = new Partition( ips(a), d(a*z), d(a*z + z-1) )::partitions
         }
       }
+     // println("sorting",partitions)
 
     }
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
+
     }
   }
   
 
-  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String, val KeyList : List[String], val IpList : List[String]) extends Runnable {
+  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
     /* *********STructure ********
     readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
     ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
@@ -152,8 +162,8 @@ package object master {
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
       val sample : Sample = parseSampleBuffer(buffer)
-      KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
-      println(KeyList.flatten.toString)
+      KeyList = KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
+      println("KeyList from buffer",KeyList)  //complete!
     }
 
     //read key and ip  & save those to Array{string]
@@ -166,32 +176,33 @@ package object master {
 
     }
 
-
-
-    def givePartition(buffer : ByteBuffer) = {
-      buffer.clear()
-      sock.read(buffer)
-      //Sampledatas += buffer.toString
-      // input buffer handler(consider partition range...?)
-      // and consider write buffer content..
-      // below case jest test...
-      println("hihihihhii")
-      println(buffer.get(0))
-      buffer.clear()
-      sock.write(ByteBuffer.wrap("hi!".getBytes()))
-    }
+//
+//
+//    def givePartition(buffer : ByteBuffer) = {
+//      buffer.clear()
+//      sock.read(buffer)
+//      //Sampledatas += buffer.toString
+//      // input buffer handler(consider partition range...?)
+//      // and consider write buffer content..
+//      // below case jest test...
+//      println("hihihihhii")
+//      println(buffer.get(0))
+//      buffer.clear()
+//      sock.write(ByteBuffer.wrap("hi!".getBytes()))
+//    }
 
                                                                                                                                                                                                                                                                                                                
     def run()
     {
       println("Hi!")
-<<<<<<< HEAD
+
 // just example!  I don't know buffer capacity uuu..
-      val Buffer = ByteBuffer.allocate(1024 * 1024 *10)
-=======
+
       val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
->>>>>>> 52ac599a50df60697926aa0384a3139f622ba945
+
       readSampleData(Buffer)
+      //println("end thread")
+      //Thread.sleep(4000)
     }
   }
 
