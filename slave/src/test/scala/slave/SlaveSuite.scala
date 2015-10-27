@@ -12,6 +12,8 @@ class SlaveSuite extends FunSuite {
     val calculation = SlaveCalculation(sock, inputDirs, outputDir)
     val s:Sample = calculation.getSamples
     assert(calculation.totalSampleKey == s._2.size)
-    //s.print
+    s.print
+    s.toBuffer
+
   }
 }
