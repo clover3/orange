@@ -111,18 +111,18 @@ package object master {
 
       val x = d.length
       val y = ips.length
-      if(y!=0){val z = x/y }  // assume that Datas are uniform
+      val z = x/y   // assume that Datas are uniform
 
-      var a = 0
-      for (a<-0 to (y-1)){
+      var a :Int = 0
+      for (a<- Range(0, y-1)){
         if (a == 0) {
-//          partitions = partitions::(Partition(ips[0], "           !", d[a * z + z - 1] ) )//aski?????
+           partitions = partitions::(new Partition(ips(0), "           !", d(a * z + z - 1) ) )//aski?????
         }
         else if(a==(y-1)){
-//          partitions = partitions::(Partition(ips[a], d[a*z], "~~~~~~~~~~" ))  //aski
+            partitions = partitions::(new Partition(ips(y-1), d(a*z), "~~~~~~~~~~" ))  //aski
         }
         else{
-//          partitions = partitions::(Partition( ips[a], d[a*z], d[a*z + z-1]  ))
+           partitions = partitions::(new Partition( ips(a), d(a*z), d(a*z + z-1)  ))
         }
       }
 
