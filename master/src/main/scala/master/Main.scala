@@ -1,10 +1,5 @@
 package master
 
-
-
-//import common.typedef._
-
-
 object Main {
   
   def main(args: Array[String]) = {
