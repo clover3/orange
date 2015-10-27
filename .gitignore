@@ -2,3 +2,8 @@ target/
 workspace.xml
 tasks.xml
 vcs.xml
+*.iml
+*.class
+tags
+.*.swp
+.*.swo
