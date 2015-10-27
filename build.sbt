@@ -1,3 +1,12 @@
+
+
+
+libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.1"
+
+libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+
+unmanagedBase <<= baseDirectory { base => base / "lib" }
+
 lazy val commonSettings = Seq(
   version := "0.1.0",
   scalaVersion := "2.11.7"
