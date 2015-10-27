@@ -134,10 +134,8 @@ package object master {
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
-      PartitionCompanionOps(partitions)
-      ClientsocketList.foreach(x=>x.write(ByteBuffer))
+      ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
-
   }
   
 
