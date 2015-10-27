@@ -57,7 +57,7 @@ package object typedef {
     }
     def print = {
       partitions.foreach(x => println("ip:"+ x.ip + " st:"+ x.Startkey + " ed:" + x.Endkey))
-    } 
+    }
   }
 
 
