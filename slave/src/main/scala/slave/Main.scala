@@ -1,8 +1,6 @@
 
 package slave
 
-import java.nio._
-
 object Main {
   
   def main(args: Array[String]) = {

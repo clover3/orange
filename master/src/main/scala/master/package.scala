@@ -151,8 +151,8 @@ package object master {
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
       val sample : Sample = parseSampleBuffer(buffer)
-      KeyList :: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
-
+      KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
+      println(KeyList.flatten.toString)
     }
 
     //read key and ip  & save those to Array{string]
@@ -160,6 +160,8 @@ package object master {
       buffer.clear()
       sock.read(buffer)
       ParseBuffer(buffer)
+
+
 
     }
 
@@ -200,7 +202,7 @@ package object master {
       
       println("Hi!")
 // just example!  I don't know buffer capacity uuu..
-      val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
+      val Buffer = ByteBuffer.allocate(1024 * 1024 *10)
       readSampleData(Buffer)
 
 

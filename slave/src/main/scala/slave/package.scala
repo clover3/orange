@@ -1,8 +1,10 @@
 import java.io._
 import java.net._
-import java.nio.{Buffer, _}
+import java.nio._
 import java.nio.channels._
+
 import common.typedef._
+
 import scala.io._
 
 package object slave {
@@ -97,7 +99,9 @@ package object slave {
         val numLines = linePerFile
         val fileStream: Stream[String] = Source.fromFile(file).getLines().toStream;
         val keyList = fileStream.take(numSamples).map(parseLine).toList
+
         (numLines, keyList)
+
       }
 
       // parseLine gets line containing both key and value, and return only key string
@@ -114,6 +118,7 @@ package object slave {
 
       // recieves buffer containing samples and returns buffer containing partitions
       def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
+        println("for debug : exchangeSample")
         slaveSocket.sendAndRecvOnce(samplesBuffer)
       }
     }
@@ -142,9 +147,13 @@ package object slave {
     val sock = SocketChannel.open(new InetSocketAddress(masterIPAddr, masterPort))
 
     def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
+      println("buffer", buffer)
       sock.write(buffer)
+      println("buffer", buffer.toString)
       buffer.clear()
+      println("write complete")
       sock.read(buffer)
+      println("read complete")
       buffer
     }
   }
