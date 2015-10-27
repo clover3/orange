@@ -22,7 +22,7 @@ package object typedef {
   // buffer contains Parition information (buffer -> Partitions)
   def parsePartitionBuffer(buf : ByteBuffer ) : Partitions = {
     val arr:Array[Byte] = buf.array()
-    val Ipoffset : Int = 11
+    val Ipoffset : Int = 15
     val StartKeyoffset : Int = 10
     val EndKeyoffset : Int = 10
     val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
@@ -34,9 +34,9 @@ package object typedef {
       val PartitionList = for{
         (b :Int)<- Range(0, slaveNum)
       } yield {
-          new Partition(new String(arr.slice(b*totalOffset, b*totalOffset+Ipoffset )) ,
-                        new String(arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset)) ,
-                        new String(arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset )) )
+          new Partition(arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,
+                        arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString ,
+                        arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
         }
       val partitions : Partitions = PartitionList.toList
       partitions
