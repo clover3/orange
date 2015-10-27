@@ -22,7 +22,7 @@ package object typedef {
   // buffer contains Parition information (buffer -> Partitions)
   def parsePartitionBuffer(buf : ByteBuffer ) : Partitions = {
     val arr:Array[Byte] = buf.array()
-    val Ipoffset : Int = 11
+    val Ipoffset : Int = 15
     val StartKeyoffset : Int = 10
     val EndKeyoffset : Int = 10
     val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
@@ -52,11 +52,27 @@ package object typedef {
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
     def toByteBuffer : ByteBuffer = {
       //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )
-      var sum : String =""
+      var sum : Array[Byte] = Array()
 
-      partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
-      val byteArr: Array[Byte] = sum.getBytes
-      ByteBuffer.wrap(byteArr)
+      var length = partitions.length
+      val bytearr1 = for{
+        a <- Range(0,length)
+      } yield{
+          val ip = partitions(a)._1
+          val startkey = partitions(a)._2
+          val endkey = partitions(a)._3
+
+          val buf : ByteBuffer = ByteBuffer.allocate(15)
+          val ipArr : Array[Byte] = buf.put(ip.getBytes()).array()
+          val startkeyArr : Array[Byte] = startkey.getBytes()
+          val endkeyArr : Array[Byte] = endkey.getBytes()
+          sum = sum ++: ipArr ++: startkeyArr ++: endkeyArr
+        }
+
+
+      //partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
+      //val byteArr: Array[Byte] = sum.getBytes
+      ByteBuffer.wrap(sum)
 
     }
     def print = {
