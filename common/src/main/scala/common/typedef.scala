@@ -34,9 +34,9 @@ package object typedef {
       val PartitionList = for{
         (b :Int)<- Range(0, slaveNum)
       } yield {
-          new Partition(arr.slice(b*totalOffset, b*totalOffset+Ipoffset ).toString ,
-                        arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset).toString ,
-                        arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ).toString)
+          new Partition(new String(arr.slice(b*totalOffset, b*totalOffset+Ipoffset ), "UTF-8") ,
+                        new String(arr.slice(b*totalOffset + Ipoffset ,b*totalOffset+Ipoffset+StartKeyoffset), "UTF-8") ,
+                        new String(arr.slice(b*totalOffset+Ipoffset+StartKeyoffset, b*totalOffset+Ipoffset+StartKeyoffset +EndKeyoffset ), "UTF-8"))
         }
       val partitions : Partitions = PartitionList.toList
       partitions
@@ -51,7 +51,7 @@ package object typedef {
       var sum : String =""
 
       partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
-      val byteArr: Array[Byte] = sum.getBytes
+      val byteArr: Array[Byte] = sum.getBytes("UTF-8")
       ByteBuffer.wrap(byteArr)
 
     }
@@ -75,8 +75,8 @@ package object typedef {
         val keyArrList = for {
           b <- Range(0, numSampleKey)
         } yield  arr.slice(offset + b*10, offset + b*10 + 10 )
-        val keyList = keyArrList.map(bArr => bArr.mkString).toList
-        (numSampleKey, keyList)
+        val keyList = keyArrList.map(bArr => new String(bArr,"UTF-8") ).toList
+        (numTotalKey, keyList)
       }
   }
 
@@ -86,15 +86,15 @@ package object typedef {
       val numTotalKeys = sample._1
       val numTotalKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
 
-      val numKeys = sample._2.length
-      val numKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numKeys).array()
+      val numSampleKeys = sample._2.length
+      val numSampleKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numSampleKeys).array()
 
       val keyList = sample._2
-      val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes).toArray
+      val byteArrArr : Array[Array[Byte]] = keyList.map(str => str.getBytes("UTF-8")).toArray
 
   // numKey + keys....
 
-      val byteArr: Array[Byte] = numTotalKeyArr ++: numKeyArr ++: byteArrArr.flatten
+      val byteArr: Array[Byte] = numTotalKeyArr ++: numSampleKeyArr ++: byteArrArr.flatten
 
       ByteBuffer.wrap(byteArr)
     }
