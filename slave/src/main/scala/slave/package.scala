@@ -38,8 +38,8 @@ package object slave {
 
 
       // number of keys for slave to send to server this number of keys' size sum up to 1MB
-      val totalSampleKey: Int = 100 * 1024
-      //val totalSampleKey: Int = 22
+      //val totalSampleKey: Int = 100 * 1024
+      val totalSampleKey: Int = 22
       val linePerFile = 327680
 
       // getPartition

@@ -114,6 +114,7 @@ package object master {
 
       val x = d.length
       val y = ips.length
+      assert(y != 0)
       val z = x/y   // assume that Datas are uniform
 
       var a :Int = 0
@@ -171,43 +172,26 @@ package object master {
       buffer.clear()
       sock.read(buffer)
       //Sampledatas += buffer.toString
-// input buffer handler(consider partition range...?)
-// and consider write buffer content..
-// below case jest test...
-        println("hihihihhii")
-        println(buffer.get(0))
-        buffer.clear()
-//        sock.write(buffer)
-        sock.write(ByteBuffer.wrap("hi!".getBytes()))
-
-
-////////////////////////////////////////////////////
-
-/*        if(buffer.hasRemaining()) {
-        buffer.compact()
-        } else {
-        buffer.clear
-        }
-  */
+      // input buffer handler(consider partition range...?)
+      // and consider write buffer content..
+      // below case jest test...
+      println("hihihihhii")
+      println(buffer.get(0))
+      buffer.clear()
+      sock.write(ByteBuffer.wrap("hi!".getBytes()))
     }
-
-//    def write(partitions : Partitions): Unit ={
-//      val buf:ByteBuffer = partitions.toByteBuffer;
-//      sock.write(buf)
-//    }
 
                                                                                                                                                                                                                                                                                                                
     def run()
     {
-      
       println("Hi!")
+<<<<<<< HEAD
 // just example!  I don't know buffer capacity uuu..
       val Buffer = ByteBuffer.allocate(1024 * 1024 *10)
+=======
+      val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
+>>>>>>> 52ac599a50df60697926aa0384a3139f622ba945
       readSampleData(Buffer)
-
-
-      //givePartition(inOutBuffer)
-      //sock.close()
     }
   }
 
