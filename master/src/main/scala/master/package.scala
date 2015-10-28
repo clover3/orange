@@ -31,12 +31,11 @@ package object master {
 
 
   object Master {
-    var ipAddrList : List[String] = Nil
     var slaveThread : List[Thread] = Nil
     var id2Slave : Map[slaveID, Slave] = Map.empty
     var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
     var KeyArray : Array[String] = empty // save sample datas from each slaves
-    var IpArray : Array[String] = ipAddrList.toArray // save IPs from
+    def IpArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray // save IPs from
     val port : Int = 5959
     val server = ServerSocketChannel.open()
     val sock  = server.socket()
@@ -60,7 +59,6 @@ package object master {
 
           acceptNum = acceptNum + 1
           val addrStr = client.socket().getRemoteSocketAddress().toString()
-          addIPList(addrStr)
           println(addrStr.toIPList.toIPString)
           val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
           id2Slave = id2Slave + (acceptNum -> slave)
@@ -75,10 +73,6 @@ package object master {
     }
 
 
-    def addIPList(ipaddr : String) {
-      ipAddrList = (ipaddr::ipAddrList).map(_.toIPList).map(_.toIPString)
-    }
-
     def addSlaveThread(t : Thread) {
       slaveThread = t :: slaveThread
     }
@@ -86,7 +80,7 @@ package object master {
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key () : Partitions = {
       var keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
-      val ips = ipAddrList.toArray
+      val ips = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray
       Sorting.quickSort(keyArray)
       val keyArrLen = keyArray.length
       val ipLen = ips.length
