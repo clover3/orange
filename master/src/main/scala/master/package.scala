@@ -21,11 +21,11 @@ package object master {
   implicit class StringCompanionOps(val s: String) extends AnyVal {
     def toIPList : List[Int] = {
       val R = "/(.*):[0-9]+".r
-      val R2 = """(\d{1,3})\.(\d{1,3})\.( \d{1,3})\.(\d{1,3})""".r
+      val R2 = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})""".r
       s match {
         case R(ip) => {ip.split('.').map(_.toInt).toList}
         case R2(ip1,ip2,ip3,ip4) => List(ip1.toInt, ip2.toInt, ip3.toInt, ip4.toInt)
-        case _ => {throw new Exception("IP error")}
+        case _ => {throw new Exception("IP error:"+s)}
       }
     }
   }
@@ -62,13 +62,7 @@ package object master {
     def start(slaveNum : Int) {
       KeyList =Nil
 
-
-      //val pool : ExecutorService = Executors.newFixedThreadPool(slaveNum) //ThreadPool
-
-
-
       sock.bind(new InetSocketAddress(port))
-
 
       var acceptNum = 0
       println("Listening...")
@@ -81,8 +75,9 @@ package object master {
 
           acceptNum = acceptNum + 1
           println("Connected")
-          addIPList(client.socket().getRemoteSocketAddress().toString())
-          val slave = new Slave(acceptNum, client, client.socket().getRemoteSocketAddress().toString().toIPList.toIPString)
+          val addrStr = client.socket().getRemoteSocketAddress().toString()
+          addIPList(addrStr)
+          val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
           //pool.execute(slave)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
@@ -111,8 +106,9 @@ package object master {
       //KeyArray =KeyList.map(x=>x.mkString).toArray
       KeyList.copyToArray(KeyArray)
 
-      val d = KeyArray
+      val keyArray = KeyArray
       val ips = ipAddrList.toArray
+<<<<<<< HEAD
       println("before sorting d", KeyArray.toString)
       println("IPList" , ipAddrList)
       Sorting.quickSort(d)
@@ -134,20 +130,39 @@ package object master {
         else if(a==(y-1)){
           var add : Partition = new Partition(ips(y-1), d(a*z), 127.toChar.toString*10)
             partitions = add :: partitions //aski
-        }
-        else{
-           partitions = new Partition( ips(a), d(a*z), d(a*z + z-1) )::partitions
-        }
-      }
-      println("sorting",partitions)
+=======
+     // println("before sorting d", KeyArray)
+      Sorting.quickSort(keyArray)
 
+      val keyArrLen = keyArray.length
+      val ipLen = ips.length
+      assert(ipLen != 0)
+      val numSlave = keyArrLen/ipLen   // assume that Datas are uniform
+      var a :Int = 0
+        println("y",ipLen)
+      val keyLimitMin = 0.toChar.toString * 10
+      val keyLimitMax = 127.toChar.toString * 10
+      val pSeq = for( i<- 0 until ipLen )
+        yield  {
+          if( i == 0)
+            new Partition(ips(0), keyLimitMin , keyArray( (i + 1) * numSlave) )
+          else if( i == (ipLen - 1) )
+            new Partition(ips(ipLen - 1), keyArray(i * numSlave), keyLimitMax)
+          else
+            new Partition( ips(i), keyArray(i * numSlave), keyArray( (i + 1) * numSlave ) )
+>>>>>>> 979320daff8de73d2cd620081c99ac7455fa857e
+        }
+      val pList : Partitions = pSeq.toList
+      partitions = pList
     }
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
+<<<<<<< HEAD
       //println("sorting",partitions)
+=======
+>>>>>>> 979320daff8de73d2cd620081c99ac7455fa857e
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
-
     }
   }
   
@@ -185,14 +200,13 @@ package object master {
       buffer.clear()
       var nbyte = 0
       var i = 0
-      while(i < totalSampleKeyPerSlave) {
+      val expectLen = totalSampleKeyPerSlave*10 + 8
+      while(i <  expectLen) {
       nbyte = sock.read(buffer)
       println(buffer)
       i = i + nbyte
       }
       ParseBuffer(buffer)
-
-
 
     }
 
