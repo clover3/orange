@@ -6,7 +6,12 @@ object Main {
   def main(args: Array[String]) = {
 
     val server = Master
-    server.start(args(0).toInt)
+    val slaveNum = try { 
+      args(0).toInt
+    } catch {
+      case e : Exception => throw new Exception ("Argv[1] Error")
+    }
+    server.start(slaveNum)
 
   }
 }

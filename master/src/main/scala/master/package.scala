@@ -10,12 +10,7 @@ import scala.util.control.Breaks._
 
 package object master {
   
-  var KeyList : List[String] = Nil
-  var partition : Partition = new Partition("","","")
   var partitions : Partitions =Nil
-
-
-
 
 
   implicit class StringCompanionOps(val s: String) extends AnyVal {
@@ -25,7 +20,7 @@ package object master {
       s match {
         case R(ip) => {ip.split('.').map(_.toInt).toList}
         case R2(ip1,ip2,ip3,ip4) => List(ip1.toInt, ip2.toInt, ip3.toInt, ip4.toInt)
-        case _ => {throw new Exception("IP error:"+s)}
+        case _ => {throw new Exception("IP error : "+s)}
       }
     }
   }
@@ -35,10 +30,7 @@ package object master {
   }
 
 
-
-
   type slaveID = Int
-
 
 
   object Master {
@@ -48,7 +40,6 @@ package object master {
     var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
     var KeyArray : Array[String] = empty // save sample datas from each slaves
     var IpArray : Array[String] = ipAddrList.toArray // save IPs from
-    partition  = new Partition("","","")
     partitions =Nil
     val port : Int = 5959
     val server = ServerSocketChannel.open()
@@ -60,7 +51,6 @@ package object master {
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
 
     def start(slaveNum : Int) {
-      KeyList =Nil
 
       sock.bind(new InetSocketAddress(port))
 
@@ -100,7 +90,7 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      var keyArray = KeyList.toArray
+      var keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
       val ips = ipAddrList.toArray
       Sorting.quickSort(keyArray)
       val keyArrLen = keyArray.length
@@ -149,23 +139,17 @@ package object master {
 
      */
 
+    val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
-    def ParseBuffer(buffer: ByteBuffer) = {
+    def ParseBuffer() : List[String] = {
 
-      val sample : Sample = parseSampleBuffer(buffer)
-      val numSampleKey :Int = sample._2.length
-      var KeyListForRead = sample._2
-      val TestArray = KeyListForRead.toArray
-      var Keyindex : Int  = 0
-      for (Keyindex <- Range(0,numSampleKey)) {
-        KeyList = KeyListForRead.head :: KeyList //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
-        KeyListForRead = KeyListForRead.tail
-      }
-
+      val sample : Sample = parseSampleBuffer(Buffer)
+      var KeyListForRead : List[String] = sample._2
+      KeyListForRead
     }
 
     //read key and ip  & save those to Array{string]
-    def readSampleData(buffer : ByteBuffer) ={
+    def readSampleData(buffer : ByteBuffer) : Unit ={
       buffer.clear()
       var nbyte = 0
       var i = 0
@@ -174,19 +158,12 @@ package object master {
       nbyte = sock.read(buffer)
       i = i + nbyte
       }
-      ParseBuffer(buffer)
-
     }
 
                                                                                                                                                                                                                                                                                                               
     def run()
     {
-
-      val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
-
       readSampleData(Buffer)
-      Buffer.clear()
-
     }
   }
 
