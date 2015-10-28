@@ -121,7 +121,7 @@ package object slave {
       def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
 
         slaveSocket.sendAndRecvOnce(samplesBuffer)
-        //println("for debug : exchangeSample",slaveSocket.sendAndRecvOnce(samplesBuffer))
+
       }
     }
   }
@@ -134,7 +134,7 @@ package object slave {
       val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
       val partitions : Partitions = slaveCalculation.getPartition
       println("this is partition")
-      println( partitions.length)
+      //println( partitions.length)
       //println (partitions)
       println("this is partition end")
     }
