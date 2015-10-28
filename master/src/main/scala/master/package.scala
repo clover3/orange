@@ -69,14 +69,13 @@ package object master {
       breakable {
         while (true) {
           if(acceptNum >= slaveNum) break
-          println("slaveNum",slaveNum)
           val client = server.accept()
           ClientsocketList = client :: ClientsocketList
 
           acceptNum = acceptNum + 1
-          println("Connected")
           val addrStr = client.socket().getRemoteSocketAddress().toString()
           addIPList(addrStr)
+          println(addrStr.toIPList.toIPString)
           val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
           //pool.execute(slave)
           id2Slave = id2Slave + (acceptNum -> slave)
@@ -90,10 +89,7 @@ package object master {
 
 
     def addIPList(ipaddr : String) {
-      object IPOrdering extends Ordering[List[Int]] {
-        def compare(a : List[Int], b:List[Int]) = a.head compare b.head
-      }
-      ipAddrList = (ipaddr::ipAddrList).map(_.toIPList).sorted(IPOrdering).map(_.toIPString)
+      ipAddrList = (ipaddr::ipAddrList).map(_.toIPList).map(_.toIPString)
     }
 
     def addSlaveThread(t : Thread) {
@@ -157,15 +153,11 @@ package object master {
       var KeyListForRead = sample._2
       val TestArray = KeyListForRead.toArray
       var Keyindex : Int  = 0
-      //println("numSampleKey",numSampleKey)
-      //("Test Key Index : 102399" ,TestArray(102400) )
       for (Keyindex <- Range(0,numSampleKey)) {
         KeyList = KeyListForRead.head :: KeyList //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
         KeyListForRead = KeyListForRead.tail
-        //println("KeyList head", KeyListForRead.head)
       }
 
-      //println("KeyList from buffer",KeyList)  //complete!
     }
 
     //read key and ip  & save those to Array{string]
@@ -185,7 +177,6 @@ package object master {
                                                                                                                                                                                                                                                                                                               
     def run()
     {
-      println("Hi!")
 
 // just example!  I don't know buffer capacity uuu..
 
