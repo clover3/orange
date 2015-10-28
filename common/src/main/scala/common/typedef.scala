@@ -26,7 +26,8 @@ package object typedef {
     val StartKeyoffset : Int = 10
     val EndKeyoffset : Int = 10
     val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
-    val slaveNum :Int= arr.length/ totalOffset
+    val dataLen = buf.position()
+    val slaveNum :Int= dataLen/ totalOffset
     val expectLen = (Ipoffset+ StartKeyoffset + EndKeyoffset) * slaveNum
     val PartitionList = for{
       (b :Int)<- Range(0, slaveNum)
@@ -41,8 +42,6 @@ package object typedef {
       }
       val partitions : Partitions = PartitionList.toList
       partitions
-
-
   }
 //partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
