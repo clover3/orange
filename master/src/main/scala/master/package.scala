@@ -107,24 +107,28 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      //println("before convert d", KeyList)
-      KeyArray =KeyList.map(x=>x.mkString).toArray
+      println("before convert d", KeyList.head)
+      //KeyArray =KeyList.map(x=>x.mkString).toArray
+      KeyList.copyToArray(KeyArray)
 
       val d = KeyArray
       val ips = ipAddrList.toArray
-     // println("before sorting d", KeyArray)
+      println("before sorting d", KeyArray.toString)
+      println("IPList" , ipAddrList)
       Sorting.quickSort(d)
       println("sorting d", d)
 
       val x = d.length
+      println("KeyList.length",KeyList.length)
+      println("x",x)
       val y = ips.length
       assert(y != 0)
       val z = x/y   // assume that Datas are uniform
-print("z",z)
+      //print("z",z)
       var a :Int = 0
         println("y",y)
-      for (a<- 0 until y){
-        if (a == 0) {
+      for (a<-  1 until y){
+        if (a == 1) {
            partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions
         }
         else if(a==(y-1)){
@@ -141,7 +145,7 @@ print("z",z)
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
-      println("sorting",partitions)
+      //println("sorting",partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
 
     }
@@ -159,9 +163,21 @@ print("z",z)
 
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
+
       val sample : Sample = parseSampleBuffer(buffer)
-      KeyList = KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
-      //println("KeyList from buffer",KeyList)  //complete!
+      val numSampleKey :Int = sample._2.length
+      var KeyListForRead = sample._2
+      val TestArray = KeyListForRead.toArray
+      var Keyindex : Int  = 0
+      println("numSampleKey",numSampleKey)
+      println("Test Key Index : 102399" ,TestArray(10250) )
+      for (Keyindex <- Range(0,1000)) {
+        KeyList = KeyListForRead.head :: KeyList //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
+        KeyListForRead = KeyListForRead.tail
+        //println("KeyList head", KeyListForRead.head)
+      }
+
+      println("KeyList from buffer",KeyList)  //complete!
     }
 
     //read key and ip  & save those to Array{string]

@@ -82,6 +82,7 @@ package object typedef {
       val arr:Array[Byte] = buf.array()
       val numTotalKey = ByteBuffer.wrap(arr.slice(0,4)).getInt()
       val numSampleKey = ByteBuffer.wrap(arr.slice(4,8)).getInt()
+    println("number of sample key" , numSampleKey)
       val expectLen = 8 + numSampleKey * 10
       val offset = 8
       val keyArrList = for {
