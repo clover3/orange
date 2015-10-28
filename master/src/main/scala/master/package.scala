@@ -129,6 +129,10 @@ package object master {
       println("partitions befor write : ",partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
+
+    def close(): Unit ={
+      ClientsocketList.foreach(x=>x.close())
+    }
   }
   
 

@@ -133,10 +133,8 @@ package object slave {
     def run() = {
       val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
       val partitions : Partitions = slaveCalculation.getPartition
-      println("this is partition")
-      //println( partitions.length)
-      //println (partitions)
-      println("this is partition end")
+      println("this is partition", partitions.length)
+      println (partitions)
     }
   }
 
@@ -152,13 +150,11 @@ package object slave {
     val sock = SocketChannel.open(new InetSocketAddress(masterIPAddr, masterPort))
 
     def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
-
       var nbyte = 0
       nbyte = sock.write(buffer)
       println(nbyte)
       buffer.clear()
       sock.read(buffer)
-      println("read complete")
       buffer
     }
   }

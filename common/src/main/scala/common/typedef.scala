@@ -64,9 +64,6 @@ package object typedef {
           sum = sum ++: ipArr ++: startkeyArr ++: endkeyArr
         }
 
-
-      //partitions.foreach(x=> sum += x._1 + x._2 + x._3  )
-      //val byteArr: Array[Byte] = sum.getBytes
       ByteBuffer.wrap(sum)
 
     }
@@ -126,4 +123,3 @@ package object typedef {
   }
 
 }
-
