@@ -77,14 +77,16 @@ package object master {
           addIPList(addrStr)
           println(addrStr.toIPList.toIPString)
           val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
-          //pool.execute(slave)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           addSlaveThread(t)
           t.start()
-          //break;
         }
       }
+      slaveThread.foreach(_.join())
+      sorting_Key()
+      SendPartitions()
+      close()
     }
 
 
@@ -98,13 +100,9 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      println("before convert List to Array(List.head)", KeyList.head)
       var keyArray = KeyList.toArray
       val ips = ipAddrList.toArray
-       println("before sorting, Array(0)", keyArray(0))
       Sorting.quickSort(keyArray)
-      println("after sorting, Array(0)", keyArray(0))
-      println("Maximum Key", keyArray(102399))
       val keyArrLen = keyArray.length
       val ipLen = ips.length
       assert(ipLen != 0)
@@ -129,12 +127,13 @@ package object master {
     // comment
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
-      println("partitions befor write :  ",partitions)
+      println("partitions befor write :  "  + partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
 
     def close(): Unit ={
       ClientsocketList.foreach(x=>x.close())
+      server.close()
     }
   }
   
@@ -180,8 +179,6 @@ package object master {
                                                                                                                                                                                                                                                                                                               
     def run()
     {
-
-// just example!  I don't know buffer capacity uuu..
 
       val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
 
