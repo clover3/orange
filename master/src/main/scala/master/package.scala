@@ -102,66 +102,35 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      println("before convert d", KeyList.head)
-      //KeyArray =KeyList.map(x=>x.mkString).toArray
-      KeyList.copyToArray(KeyArray)
-
-      val keyArray = KeyArray
+      println("before convert List to Array(List.head)", KeyList.head)
+      var keyArray = KeyList.toArray
       val ips = ipAddrList.toArray
-<<<<<<< HEAD
-      println("before sorting d", KeyArray.toString)
-      println("IPList" , ipAddrList)
-      Sorting.quickSort(d)
-      println("sorting d", d)
-
-      val x = d.length
-      println("KeyList.length",KeyList.length)
-      println("x",x)
-      val y = ips.length
-      assert(y != 0)
-      val z = x/y   // assume that Datas are uniform
-      //print("z",z)
-      var a :Int = 0
-        println("y",y)
-      for (a<-  1 until y){
-        if (a == 1) {
-           partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions
-        }
-        else if(a==(y-1)){
-          var add : Partition = new Partition(ips(y-1), d(a*z), 127.toChar.toString*10)
-            partitions = add :: partitions //aski
-=======
-     // println("before sorting d", KeyArray)
+       println("before sorting, Array(0)", keyArray(0))
       Sorting.quickSort(keyArray)
-
+      println("after sorting, Array(0)", keyArray(0))
+      println("Maximum Key", keyArray(102399))
       val keyArrLen = keyArray.length
       val ipLen = ips.length
       assert(ipLen != 0)
       val numSlave = keyArrLen/ipLen   // assume that Datas are uniform
-      var a :Int = 0
-        println("y",ipLen)
       val keyLimitMin = 0.toChar.toString * 10
       val keyLimitMax = 127.toChar.toString * 10
-      val pSeq = for( i<- 0 until ipLen )
+      partitions = Nil
+      val pSeq = for( i<- 1 to ipLen )
         yield  {
-          if( i == 0)
-            new Partition(ips(0), keyLimitMin , keyArray( (i + 1) * numSlave) )
-          else if( i == (ipLen - 1) )
-            new Partition(ips(ipLen - 1), keyArray(i * numSlave), keyLimitMax)
+          if( i == 1)
+            partitions = new Partition(ips(0), keyLimitMin , keyArray( (i) * numSlave -1) )::partitions
+          else if( i == (ipLen) )
+            partitions = new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)::partitions
           else
-            new Partition( ips(i), keyArray(i * numSlave), keyArray( (i + 1) * numSlave ) )
->>>>>>> 979320daff8de73d2cd620081c99ac7455fa857e
+            partitions = new Partition( ips(i), keyArray((i-1) * numSlave), keyArray( (i) * numSlave - 1 ) )::partitions
         }
-      val pList : Partitions = pSeq.toList
-      partitions = pList
+      partitions
     }
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
-<<<<<<< HEAD
-      //println("sorting",partitions)
-=======
->>>>>>> 979320daff8de73d2cd620081c99ac7455fa857e
+      println("partitions befor write",partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
   }
@@ -184,15 +153,15 @@ package object master {
       var KeyListForRead = sample._2
       val TestArray = KeyListForRead.toArray
       var Keyindex : Int  = 0
-      println("numSampleKey",numSampleKey)
-      println("Test Key Index : 102399" ,TestArray(10250) )
-      for (Keyindex <- Range(0,1000)) {
+      //println("numSampleKey",numSampleKey)
+      //("Test Key Index : 102399" ,TestArray(102400) )
+      for (Keyindex <- Range(0,numSampleKey)) {
         KeyList = KeyListForRead.head :: KeyList //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
         KeyListForRead = KeyListForRead.tail
         //println("KeyList head", KeyListForRead.head)
       }
 
-      println("KeyList from buffer",KeyList)  //complete!
+      //println("KeyList from buffer",KeyList)  //complete!
     }
 
     //read key and ip  & save those to Array{string]
@@ -203,7 +172,6 @@ package object master {
       val expectLen = totalSampleKeyPerSlave*10 + 8
       while(i <  expectLen) {
       nbyte = sock.read(buffer)
-      println(buffer)
       i = i + nbyte
       }
       ParseBuffer(buffer)
@@ -221,8 +189,7 @@ package object master {
 
       readSampleData(Buffer)
       Buffer.clear()
-      //println("end thread")
-      //Thread.sleep(4000)
+
     }
   }
 

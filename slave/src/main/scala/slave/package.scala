@@ -119,8 +119,9 @@ package object slave {
 
       // recieves buffer containing samples and returns buffer containing partitions
       def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
-        println("for debug : exchangeSample")
+
         slaveSocket.sendAndRecvOnce(samplesBuffer)
+        //println("for debug : exchangeSample",slaveSocket.sendAndRecvOnce(samplesBuffer))
       }
     }
   }
@@ -133,7 +134,8 @@ package object slave {
       val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
       val partitions : Partitions = slaveCalculation.getPartition
       println("this is partition")
-      //println( partitions.length); println (partitions)
+      println( partitions.length)
+      //println (partitions)
       println("this is partition end")
     }
   }
@@ -150,14 +152,11 @@ package object slave {
     val sock = SocketChannel.open(new InetSocketAddress(masterIPAddr, masterPort))
 
     def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
-      println("buffer", buffer)
+
       var nbyte = 0
       nbyte = sock.write(buffer)
       println(nbyte)
-      println("buffer", buffer.toString)
       buffer.clear()
-      println("buffer", buffer.toString)
-      println("write complete")
       sock.read(buffer)
       println("read complete")
       buffer
