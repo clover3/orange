@@ -31,55 +31,42 @@ package object master {
 
 
   object Master {
-    var slaveThread : List[Thread] = Nil
     var id2Slave : Map[slaveID, Slave] = Map.empty
-    var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
-    var KeyArray : Array[String] = empty // save sample datas from each slaves
     def IpArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray // save IPs from
     val port : Int = 5959
     val server = ServerSocketChannel.open()
     val sock  = server.socket()
-
-
-    var Samples : List[String] = Nil
-
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
 
     def start(slaveNum : Int) {
 
       sock.bind(new InetSocketAddress(port))
 
-      var acceptNum = 0
       println("Listening...")
-      breakable {
-        while (true) {
-          if(acceptNum >= slaveNum) break
+      val slaveThread : List[Thread] = {
+        for (acceptNum <- 0 until slaveNum) 
+        yield {
           val client = server.accept()
-          ClientsocketList = client :: ClientsocketList
 
-          acceptNum = acceptNum + 1
           val addrStr = client.socket().getRemoteSocketAddress().toString()
           println(addrStr.toIPList.toIPString)
           val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
-          addSlaveThread(t)
           t.start()
+          t
         }
-      }
+      }.toList
       slaveThread.foreach(_.join())
       SendPartitions()
       close()
     }
 
 
-    def addSlaveThread(t : Thread) {
-      slaveThread = t :: slaveThread
-    }
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key () : Partitions = {
-      var keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
+      val keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
       val ips = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray
       Sorting.quickSort(keyArray)
       val keyArrLen = keyArray.length
@@ -108,11 +95,11 @@ package object master {
     def SendPartitions (): Unit ={
       val partitions = sorting_Key()
       println("partitions befor write :  "  + partitions)
-      ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
+      id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.write(partitions.toByteBuffer))
     }
 
     def close(): Unit ={
-      ClientsocketList.foreach(x=>x.close())
+      id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.close())
       server.close()
     }
   }
@@ -132,16 +119,16 @@ package object master {
     def ParseBuffer() : List[String] = {
 
       val sample : Sample = parseSampleBuffer(Buffer)
-      var KeyListForRead : List[String] = sample._2
+      val KeyListForRead : List[String] = sample._2
       KeyListForRead
     }
 
     //read key and ip  & save those to Array{string]
     def readSampleData(buffer : ByteBuffer) : Unit ={
       buffer.clear()
-      var nbyte = 0
-      var i = 0
       val expectLen = totalSampleKeyPerSlave*10 + 8
+      var i = 0
+      var nbyte = 0
       while(i <  expectLen) {
       nbyte = sock.read(buffer)
       i = i + nbyte
