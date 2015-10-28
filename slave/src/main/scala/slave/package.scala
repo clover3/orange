@@ -119,8 +119,9 @@ package object slave {
 
       // recieves buffer containing samples and returns buffer containing partitions
       def exchangeSample(samplesBuffer: ByteBuffer): ByteBuffer = {
-        println("for debug : exchangeSample")
+
         slaveSocket.sendAndRecvOnce(samplesBuffer)
+
       }
     }
   }

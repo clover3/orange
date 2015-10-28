@@ -102,37 +102,35 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      //println("before convert d", KeyList)
-      KeyArray =KeyList.map(x=>x.mkString).toArray
-
-      val keyArray = KeyArray
+      println("before convert List to Array(List.head)", KeyList.head)
+      var keyArray = KeyList.toArray
       val ips = ipAddrList.toArray
-     // println("before sorting d", KeyArray)
+       println("before sorting, Array(0)", keyArray(0))
       Sorting.quickSort(keyArray)
-
+      println("after sorting, Array(0)", keyArray(0))
+      println("Maximum Key", keyArray(102399))
       val keyArrLen = keyArray.length
       val ipLen = ips.length
       assert(ipLen != 0)
       val numSlave = keyArrLen/ipLen   // assume that Datas are uniform
-      var a :Int = 0
-        println("y",ipLen)
       val keyLimitMin = 0.toChar.toString * 10
       val keyLimitMax = 127.toChar.toString * 10
-      val pSeq = for( i<- 0 until ipLen )
+      partitions = Nil
+      val pSeq = for( i<- 1 to ipLen )
         yield  {
-          if( i == 0)
-            new Partition(ips(0), keyLimitMin , keyArray( (i + 1) * numSlave) )
-          else if( i == (ipLen - 1) )
-            new Partition(ips(ipLen - 1), keyArray(i * numSlave), keyLimitMax)
+          if( i == 1)
+            partitions = new Partition(ips(0), keyLimitMin , keyArray( (i) * numSlave -1) )::partitions
+          else if( i == (ipLen) )
+            partitions = new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)::partitions
           else
-            new Partition( ips(i), keyArray(i * numSlave), keyArray( (i + 1) * numSlave ) )
+            partitions = new Partition( ips(i), keyArray((i-1) * numSlave), keyArray( (i) * numSlave - 1 ) )::partitions
         }
-      val pList : Partitions = pSeq.toList
-      partitions = pList
+      partitions
     }
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
+      println("partitions befor write",partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
 
@@ -153,8 +151,20 @@ package object master {
 
     //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
     def ParseBuffer(buffer: ByteBuffer) = {
+
       val sample : Sample = parseSampleBuffer(buffer)
-      KeyList = KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
+      val numSampleKey :Int = sample._2.length
+      var KeyListForRead = sample._2
+      val TestArray = KeyListForRead.toArray
+      var Keyindex : Int  = 0
+      //println("numSampleKey",numSampleKey)
+      //("Test Key Index : 102399" ,TestArray(102400) )
+      for (Keyindex <- Range(0,numSampleKey)) {
+        KeyList = KeyListForRead.head :: KeyList //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
+        KeyListForRead = KeyListForRead.tail
+        //println("KeyList head", KeyListForRead.head)
+      }
+
       //println("KeyList from buffer",KeyList)  //complete!
     }
 
@@ -166,7 +176,6 @@ package object master {
       val expectLen = totalSampleKeyPerSlave*10 + 8
       while(i <  expectLen) {
       nbyte = sock.read(buffer)
-      println(buffer)
       i = i + nbyte
       }
       ParseBuffer(buffer)
@@ -184,8 +193,7 @@ package object master {
 
       readSampleData(Buffer)
       Buffer.clear()
-      //println("end thread")
-      //Thread.sleep(4000)
+
     }
   }
 
