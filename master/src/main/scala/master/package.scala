@@ -108,16 +108,18 @@ package object master {
       assert(ipLen != 0)
       val numSlave = keyArrLen/ipLen   // assume that Datas are uniform
       val keyLimitMin = 0.toChar.toString * 10
-      val keyLimitMax = 127.toChar.toString * 10
+      val keyLimitMax = 126.toChar.toString * 10
       partitions = Nil
       val pSeq = for( i<- 1 to ipLen )
         yield  {
-          if( i == 1)
+          if (ipLen == 1)
+            new Partition(ips(0), keyLimitMin, keyLimitMax)
+          else if( i == 1)
             new Partition(ips(0), keyLimitMin , keyArray( (i) * numSlave) )
-          else if( i == (ipLen) )
-            new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)
+          else if( i != (ipLen) )
+            new Partition( ips(i - 1), keyArray((i-1) * numSlave), keyArray( (i) * numSlave ) )
           else
-            new Partition( ips(i), keyArray((i-1) * numSlave), keyArray( (i) * numSlave ) )
+            new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)
         }
 
       partitions = pSeq.toList
