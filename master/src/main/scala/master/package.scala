@@ -135,6 +135,10 @@ package object master {
     def SendPartitions (): Unit ={
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
+
+    def close(): Unit ={
+      ClientsocketList.foreach(x=>x.close())
+    }
   }
   
 
