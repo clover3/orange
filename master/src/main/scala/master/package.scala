@@ -115,15 +115,18 @@ package object master {
       val pSeq = for( i<- 1 to ipLen )
         yield  {
           if( i == 1)
-            partitions = new Partition(ips(0), keyLimitMin , keyArray( (i) * numSlave -1) )::partitions
+            new Partition(ips(0), keyLimitMin , keyArray( (i) * numSlave) )
           else if( i == (ipLen) )
-            partitions = new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)::partitions
+            new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)
           else
-            partitions = new Partition( ips(i), keyArray((i-1) * numSlave), keyArray( (i) * numSlave - 1 ) )::partitions
+            new Partition( ips(i), keyArray((i-1) * numSlave), keyArray( (i) * numSlave ) )
         }
-      partitions
+
+      partitions = pSeq.toList
+      println("sorting key done")
     }
 
+    // comment
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
       println("partitions befor write :  ",partitions)
