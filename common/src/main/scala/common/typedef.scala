@@ -14,7 +14,7 @@ package object typedef {
   // Sample = (Number of total records, sampled records)
   type Sample = (Int, List[String])
   type Samples = List[Sample]
-
+  val totalSampleKeyPerSlave = 100 * 1024
 
   class BufferCorruptedException extends Exception
 
@@ -28,24 +28,20 @@ package object typedef {
     val totalOffset : Int = Ipoffset+ StartKeyoffset + EndKeyoffset
     val slaveNum :Int= arr.length/ totalOffset
     val expectLen = (Ipoffset+ StartKeyoffset + EndKeyoffset) * slaveNum
-    if (arr.length != expectLen){
-      throw new BufferCorruptedException
-    } else{
-      val PartitionList = for{
-        (b :Int)<- Range(0, slaveNum)
+    val PartitionList = for{
+      (b :Int)<- Range(0, slaveNum)
       } yield {
-          val idx0 = b * totalOffset
-          val idx1 = idx0 + Ipoffset
-          val idx2 = idx1 + StartKeyoffset
-          val idx3 = idx2 + EndKeyoffset
-          new Partition(new String(arr.slice(idx0, idx1), "UTF-8").trim,
-                        new String(arr.slice(idx1, idx2), "UTF-8"),
-                        new String(arr.slice(idx2, idx3), "UTF-8"))
-        }
+        val idx0 = b * totalOffset
+        val idx1 = idx0 + Ipoffset
+        val idx2 = idx1 + StartKeyoffset
+        val idx3 = idx2 + EndKeyoffset
+        new Partition(new String(arr.slice(idx0, idx1), "UTF-8").trim,
+          new String(arr.slice(idx1, idx2), "UTF-8"),
+          new String(arr.slice(idx2, idx3), "UTF-8"))
+      }
       val partitions : Partitions = PartitionList.toList
       partitions
 
-    }
 
   }
 //partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
