@@ -10,9 +10,6 @@ import scala.util.control.Breaks._
 
 package object master {
   
-  var partitions : Partitions =Nil
-
-
   implicit class StringCompanionOps(val s: String) extends AnyVal {
     def toIPList : List[Int] = {
       val R = "/(.*):[0-9]+".r
@@ -40,7 +37,6 @@ package object master {
     var ClientsocketList : List[SocketChannel] =Nil  // to write buffer
     var KeyArray : Array[String] = empty // save sample datas from each slaves
     var IpArray : Array[String] = ipAddrList.toArray // save IPs from
-    partitions =Nil
     val port : Int = 5959
     val server = ServerSocketChannel.open()
     val sock  = server.socket()
@@ -74,7 +70,6 @@ package object master {
         }
       }
       slaveThread.foreach(_.join())
-      sorting_Key()
       SendPartitions()
       close()
     }
@@ -89,7 +84,7 @@ package object master {
     }
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
-    def sorting_Key (){
+    def sorting_Key () : Partitions = {
       var keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
       val ips = ipAddrList.toArray
       Sorting.quickSort(keyArray)
@@ -99,7 +94,6 @@ package object master {
       val numSlave = keyArrLen/ipLen   // assume that Datas are uniform
       val keyLimitMin = 0.toChar.toString * 10
       val keyLimitMax = 126.toChar.toString * 10
-      partitions = Nil
       val pSeq = for( i<- 1 to ipLen )
         yield  {
           if (ipLen == 1)
@@ -111,14 +105,14 @@ package object master {
           else
             new Partition(ips(ipLen - 1), keyArray((i-1) * numSlave), keyLimitMax)
         }
-
-      partitions = pSeq.toList
       println("sorting key done")
+      pSeq.toList
     }
 
     // comment
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
+      val partitions = sorting_Key()
       println("partitions befor write :  "  + partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
     }
