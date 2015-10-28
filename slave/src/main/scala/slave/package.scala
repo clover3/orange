@@ -39,7 +39,7 @@ package object slave {
 
       // number of keys for slave to send to server this number of keys' size sum up to 1MB
       //val totalSampleKey: Int = 100 * 1024
-      val totalSampleKey: Int = 22
+      val totalSampleKey: Int = totalSampleKeyPerSlave
       val linePerFile = 327680
 
       // getPartition
@@ -80,8 +80,9 @@ package object slave {
       def getNumFiles: Int = {
         def getNumFilesInDir(dir: String): Int = {
           val d = new File(dir)
-          if (d.exists && d.isDirectory)
+          if (d.exists && d.isDirectory) {
             d.listFiles.filter(_.isFile).length
+          }
           else
             0
         }
@@ -130,8 +131,10 @@ package object slave {
 
     def run() = {
       val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
-      val partitions = slaveCalculation.getPartition
-      println( partitions.length )
+      val partitions : Partitions = slaveCalculation.getPartition
+      println("this is partition")
+      //println( partitions.length); println (partitions)
+      println("this is partition end")
     }
   }
 
@@ -148,9 +151,12 @@ package object slave {
 
     def sendAndRecvOnce(buffer : ByteBuffer) : ByteBuffer = {
       println("buffer", buffer)
-      sock.write(buffer)
+      var nbyte = 0
+      nbyte = sock.write(buffer)
+      println(nbyte)
       println("buffer", buffer.toString)
       buffer.clear()
+      println("buffer", buffer.toString)
       println("write complete")
       sock.read(buffer)
       println("read complete")

@@ -9,11 +9,7 @@ import scala.util.Sorting
 import scala.util.control.Breaks._
 
 package object master {
-/*  class IA(val ipAddress : String) {
- *     def toIntList: List[Int] = ???
- *
- * }
- */
+  
   var KeyList : List[String] = Nil
   var partition : Partition = new Partition("","","")
   var partitions : Partitions =Nil
@@ -55,6 +51,8 @@ package object master {
     partition  = new Partition("","","")
     partitions =Nil
     val port : Int = 5959
+    val server = ServerSocketChannel.open()
+    val sock  = server.socket()
 
 
     var Samples : List[String] = Nil
@@ -62,8 +60,6 @@ package object master {
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
 
     def start(slaveNum : Int) {
-      val server = ServerSocketChannel.open()
-      val sock  = server.socket()
       KeyList =Nil
 
 
@@ -78,7 +74,7 @@ package object master {
       println("Listening...")
       breakable {
         while (true) {
-          if(acceptNum >= slaveNum) { break}
+          if(acceptNum >= slaveNum) break
           println("slaveNum",slaveNum)
           val client = server.accept()
           ClientsocketList = client :: ClientsocketList
@@ -111,12 +107,12 @@ package object master {
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key (){
-      println("before convert d", KeyList)
+      //println("before convert d", KeyList)
       KeyArray =KeyList.map(x=>x.mkString).toArray
 
       val d = KeyArray
       val ips = ipAddrList.toArray
-      println("before sorting d", KeyArray)
+     // println("before sorting d", KeyArray)
       Sorting.quickSort(d)
       println("sorting d", d)
 
@@ -126,6 +122,8 @@ package object master {
       val z = x/y   // assume that Datas are uniform
 print("z",z)
       var a :Int = 0
+      println("hihihihi!!!")
+        println(y)
       for (a<- Range(0, y-1)){
         if (a == 0) {
            partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions
@@ -138,12 +136,13 @@ print("z",z)
            partitions = new Partition( ips(a), d(a*z), d(a*z + z-1) )::partitions
         }
       }
-     // println("sorting",partitions)
+      println("sorting",partitions)
 
     }
 
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit ={
+      println("sorting",partitions)
       ClientsocketList.foreach(x=>x.write(partitions.toByteBuffer))
 
     }
@@ -163,35 +162,26 @@ print("z",z)
     def ParseBuffer(buffer: ByteBuffer) = {
       val sample : Sample = parseSampleBuffer(buffer)
       KeyList = KeyList ::: sample._2  //??? Is it right expression?? I wnat to add each Sample KeyList to All KeyList
-      println("KeyList from buffer",KeyList)  //complete!
+      //println("KeyList from buffer",KeyList)  //complete!
     }
 
     //read key and ip  & save those to Array{string]
     def readSampleData(buffer : ByteBuffer) ={
       buffer.clear()
-      sock.read(buffer)
+      var nbyte = 0
+      var i = 0
+      while(i < totalSampleKeyPerSlave) {
+      nbyte = sock.read(buffer)
+      println(buffer)
+      i = i + nbyte
+      }
       ParseBuffer(buffer)
 
 
 
     }
 
-//
-//
-//    def givePartition(buffer : ByteBuffer) = {
-//      buffer.clear()
-//      sock.read(buffer)
-//      //Sampledatas += buffer.toString
-//      // input buffer handler(consider partition range...?)
-//      // and consider write buffer content..
-//      // below case jest test...
-//      println("hihihihhii")
-//      println(buffer.get(0))
-//      buffer.clear()
-//      sock.write(ByteBuffer.wrap("hi!".getBytes()))
-//    }
-
-                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                              
     def run()
     {
       println("Hi!")
@@ -201,6 +191,7 @@ print("z",z)
       val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
 
       readSampleData(Buffer)
+      Buffer.clear()
       //println("end thread")
       //Thread.sleep(4000)
     }
