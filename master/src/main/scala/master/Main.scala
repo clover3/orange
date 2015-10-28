@@ -12,7 +12,7 @@ object Main {
     server.ipAddrList foreach println
     //println("dddd")
     server.sorting_Key ()
-//    server.SendPartitions()
+    server.SendPartitions()
     server.server.close()
   }
 }

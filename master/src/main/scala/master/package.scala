@@ -122,9 +122,8 @@ package object master {
       val z = x/y   // assume that Datas are uniform
 print("z",z)
       var a :Int = 0
-      println("hihihihi!!!")
-        println(y)
-      for (a<- Range(0, y-1)){
+        println("y",y)
+      for (a<- 0 until y){
         if (a == 0) {
            partitions = new Partition(ips(0), 0.toChar.toString*10 , d(a*z + z-1) ) ::partitions
         }
