@@ -18,8 +18,6 @@ package object typedef {
 
   class BufferCorruptedException extends Exception
 
-  // This function receives buffer parsed by  PartitionCompnionOps
-  // buffer contains Parition information (buffer -> Partitions)
   def parsePartitionBuffer(buf : ByteBuffer ) : Partitions = {
     val arr:Array[Byte] = buf.array()
     val Ipoffset : Int = 15
@@ -43,7 +41,7 @@ package object typedef {
       val partitions : Partitions = PartitionList.toList
       partitions
   }
-//partitions to Buffer To write (Ip , key[10],key[10]) (Partitons -> buffer)
+
   implicit class PartitionCompanionOps(val partitions: Partitions) extends AnyVal {
     def toByteBuffer : ByteBuffer = {
       //partitions.foreach(x=>(x._1 + x._2 + x._3).toArray )
@@ -72,8 +70,6 @@ package object typedef {
     }
   }
 
-
-
   def parseSampleBuffer(buf : ByteBuffer) : Sample = {
       val arr:Array[Byte] = buf.array()
       val numTotalKey = ByteBuffer.wrap(arr.slice(0,4)).getInt()
@@ -89,7 +85,6 @@ package object typedef {
   }
 
   implicit class SampleCompanionOps(val sample: Sample) extends AnyVal  {
-    // write down List[Samples] to buffer
     def toBuffer : ByteBuffer = {
       val numTotalKeys = sample._1
       val numTotalKeyArr : Array[Byte] = ByteBuffer.allocate(4).putInt(numTotalKeys).array()
@@ -106,7 +101,6 @@ package object typedef {
 
       ByteBuffer.wrap(byteArr)
     }
-
     def print: Unit = {
       println("Num of Keys : " + sample._1)
       sample._2.map(key => println(key))

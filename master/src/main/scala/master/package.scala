@@ -31,7 +31,7 @@ package object master {
 
 
   object Master {
-    var id2Slave : Map[slaveID, Slave] = Map.empty
+    var id2Slave : Map[slaveID, SlaveManager] = Map.empty
     def IpArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray // save IPs from
     val port : Int = 5959
     val server = ServerSocketChannel.open()
@@ -50,7 +50,7 @@ package object master {
 
           val addrStr = client.socket().getRemoteSocketAddress().toString()
           println(addrStr.toIPList.toIPString)
-          val slave = new Slave(acceptNum, client, addrStr.toIPList.toIPString)
+          val slave = new SlaveManager(acceptNum, client, addrStr.toIPList.toIPString)
           id2Slave = id2Slave + (acceptNum -> slave)
           val t = new Thread(slave)
           t.start()
@@ -105,7 +105,7 @@ package object master {
   }
   
 
-  class Slave (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
+  class SlaveManager (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
     /* *********STructure ********
     readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
     ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
