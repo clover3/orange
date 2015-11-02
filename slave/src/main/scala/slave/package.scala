@@ -20,7 +20,7 @@ package object slave {
       -> exchangeBuffer( Buffer -> Buffer )  : Uses socket
   */
 
-  trait SlaveCalculation {
+  trait SlaveSampler {
     def getPartition: Partitions
     def getSamples: Sample
     def parseLine(line: String): String
@@ -28,8 +28,8 @@ package object slave {
     def exchangeSample(samplesBuffer: ByteBuffer) : ByteBuffer
   }
 
-  object SlaveCalculation {
-    def apply(slaveSock: =>SlaveSocket, inputDirs_arg:List[String], outputDir_arg:String) = new SlaveCalculation {
+  object SlaveSampler {
+    def apply(slaveSock: =>SlaveSocket, inputDirs_arg:List[String], outputDir_arg:String) = new SlaveSampler {
     def slaveSocket: SlaveSocket = slaveSock
     val inputDirs: List[String] = inputDirs_arg
     val ouputDir: String = outputDir_arg
@@ -125,7 +125,7 @@ package object slave {
     var inputDir: List[String] = Nil
 
     def run() = {
-      val slaveCalculation = SlaveCalculation(slaveSocket, inputDirs, outputDir)
+      val slaveCalculation = SlaveSampler(slaveSocket, inputDirs, outputDir)
       val partitions : Partitions = slaveCalculation.getPartition
       print("this is partition : "); println (partitions)
     }
