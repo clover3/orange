@@ -6,25 +6,10 @@ import common.typedef._
 
 import scala.Array._
 import scala.util.Sorting
-import scala.util.control.Breaks._
 
 package object master {
   
-  implicit class StringCompanionOps(val s: String) extends AnyVal {
-    def toIPList : List[Int] = {
-      val R = "/(.*):[0-9]+".r
-      val R2 = """(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})""".r
-      s match {
-        case R(ip) => {ip.split('.').map(_.toInt).toList}
-        case R2(ip1,ip2,ip3,ip4) => List(ip1.toInt, ip2.toInt, ip3.toInt, ip4.toInt)
-        case _ => {throw new Exception("IP error : "+s)}
-      }
-    }
-  }
-  
-  implicit class ListCompanionOps(val l: List[Int]) extends AnyVal {
-    def toIPString : String = {l.map{_.toString}.mkString(".")}
-  }
+
 
 
   type slaveID = Int
