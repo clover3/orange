@@ -10,6 +10,5 @@ object Main {
     val inputDir : Array[String] = args.slice(iIndex+1, oIndex) 
     val slave = new Slave(args(0), inputDir.toList, args(oIndex + 1))
     slave.run()
-
   }
 }
