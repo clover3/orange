@@ -17,6 +17,9 @@ trait IResourceChecker {
 
   // returns the total memory that this program can use
   def totalMemory:Int = (runtime.totalMemory()).toInt
+  
+  // returns the Max Memory
+  def maxMemory : Int = (runtime.maxMemory() / mb).toInt
 }
 
 // delete abstract after implementing methods - ???
