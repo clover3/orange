@@ -8,7 +8,7 @@ import slave.Record._
 
 import scala.concurrent.Future
 
-trait IFile;
+
 
   trait IBigFile {
     // returns total number of records in this file
