@@ -11,5 +11,13 @@ package object Record {
   implicit class PartitionCompanionOps(val rec: Record) extends AnyVal {
     def key: String = rec._1
     def data: String = rec._2
+
+    def min(r2:Record) : Record = {
+      if( rec.key < r2.key )
+        rec
+      else
+        r2
+    }
   }
+
 }
