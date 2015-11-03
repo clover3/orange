@@ -3,7 +3,7 @@ package slave
 /**
  * Created by Clover on 2015-10-31.
  */
-trait IResourceChecker {
+class ResourceChecker {
 //memory info
   val mb = 1024 * 1024
   val runtime = Runtime.getRuntime
@@ -22,8 +22,3 @@ trait IResourceChecker {
   def maxMemory : Int = (runtime.maxMemory() / mb).toInt
 }
 
-// delete abstract after implementing methods - ???
-abstract class ResourceChecker extends IResourceChecker
-{
-
-}
