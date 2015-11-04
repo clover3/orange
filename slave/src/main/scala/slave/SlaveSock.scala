@@ -26,8 +26,9 @@ trait SlaveSock {
   lazy val slaveNum : Int = ipList.length
   var basePort : Int = 5000
   lazy val ipPortList : List[(String, Int)] = ipList.map { ip : String => {basePort = basePort + 1; (ip, basePort)}}
-  val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
-  lazy val (serverList, cList) : (List[(String, Int)], List[(String, Int)]) = ipPortList.span( _ != myIp)
+  /* val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString */
+  val myIp = "127.0.0.1"
+  lazy val (serverList, cList) : (List[(String, Int)], List[(String, Int)]) = ipPortList.span( _._1 != myIp)
   lazy val myIpPort : (String, Int) = cList.head
   lazy val clientList = cList.tail
   var ip2inBigfile : Map[String, BigOutputFile] = Map.empty
@@ -89,7 +90,11 @@ object SlaveSock {
   def apply(ips : List[String]) = new SlaveSock {
     val ipList = ips
     val slaveServerSock = new SlaveServerSock(ipList)
+    val serverThread = new Thread(slaveServerSock)
     val slaveClientSock = new SlaveClientSock(ipList)
+    val clientThread = new Thread(slaveClientSock)
+    clientThread.start()
+    serverThread.start()
     def ip2Bigfile : Map[String, BigOutputFile] = slaveServerSock.ip2inBigfile ++ slaveClientSock.ip2inBigfile
     def ip2Sock : Map[String, SocketChannel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
     def recvData(ip : String) : Future[BigOutputFile] = Future {

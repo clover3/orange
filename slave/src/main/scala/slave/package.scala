@@ -7,6 +7,7 @@ import common.typedef._
 
 import scala.concurrent.Future
 import scala.io._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 package object slave {
 
@@ -133,6 +134,8 @@ package object slave {
       val slaveSock = SlaveSock(ipList)
       val f : Future[BigOutputFile] = slaveSock.recvData("127.0.0.1")
       println(f.isCompleted)
+      val s = slaveSock.sendData("127.0.0.1", Future{???}, 1, 2
+
     }
   }
 
