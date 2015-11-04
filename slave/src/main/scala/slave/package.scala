@@ -8,6 +8,8 @@ import common.typedef._
 import scala.concurrent.Future
 import scala.io._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 package object slave {
 
@@ -123,18 +125,26 @@ package object slave {
 }
 
   class Slave (val master : String, val inputDirs : List[String], val outputDir : String)  {
-    val slaveSocket = new SlaveSocket(master)
+    //val slaveSocket = new SlaveSocket(master)
     var inputDir: List[String] = Nil
 
     def run() = {
-      val slaveCalculation = SlaveSampler(slaveSocket, inputDirs, outputDir)
-      val partitions : Partitions = slaveCalculation.getPartition
-      print("this is partition : "); println (partitions)
-      val ipList = partitions map {_._1}
+      //val slaveCalculation = SlaveSampler(slaveSocket, inputDirs, outputDir)
+      //val partitions : Partitions = slaveCalculation.getPartition
+      //print("this is partition : "); println (partitions)
+      //val ipList = partitions map {_._1}
+      val ipList = List("192.168.10.1", "192.168.10.2")
       val slaveSock = SlaveSock(ipList)
       val f : Future[BigOutputFile] = slaveSock.recvData("127.0.0.1")
       println(f.isCompleted)
-      val s = slaveSock.sendData("127.0.0.1", Future{???}, 1, 2
+      println(ipList)
+      println(InetAddress.getLocalHost.getHostAddress)
+      ipList.map {ip => 
+      if(InetAddress.getLocalHost.getHostAddress != ip) 
+          slaveSock.sendData(ip, Future{???}, 1, 2)}
+      Thread.sleep(6000)
+      slaveSock.wakeup()
+      ()
 
     }
   }

@@ -12,6 +12,8 @@ import java.lang.Thread
 import common.typedef._
 
 import scala.concurrent.{Promise, Future}
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 /**
  * Created by Soyeon on 2015-10-31.
@@ -26,8 +28,8 @@ trait SlaveSock {
   lazy val slaveNum : Int = ipList.length
   var basePort : Int = 5000
   lazy val ipPortList : List[(String, Int)] = ipList.map { ip : String => {basePort = basePort + 1; (ip, basePort)}}
-  /* val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString */
-  val myIp = "127.0.0.1"
+  val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString 
+  /*val myIp = "127.0.0.1"*/
   lazy val (serverList, cList) : (List[(String, Int)], List[(String, Int)]) = ipPortList.span( _._1 != myIp)
   lazy val myIpPort : (String, Int) = cList.head
   lazy val clientList = cList.tail
@@ -48,10 +50,17 @@ trait SlaveSock {
   }
   def read(selectionKey: SelectionKey) : Unit =
   {
+    println("read ### ")
     val channel = selectionKey.channel()
+    println(channel)
     channel match {
       case sockChan : SocketChannel =>
-        sockChan.read(buf)
+        val n = sockChan.read(buf)
+        println(n)
+        if(n == -1)
+        {
+            sockChan.close
+        }
         buf.flip()
         print(buf)
         /*
@@ -71,6 +80,7 @@ trait SlaveSock {
   }
   def write(sock : SocketChannel) : Unit =
   {
+    println("write hi")
     sock.write(ByteBuffer.wrap("hi".getBytes()))
        /*
        inBigFile onSuccess {
@@ -112,14 +122,28 @@ object SlaveSock {
       while(check == null) {
         ip2Sock.get(ip) match {
           case Some(sock) => check = sock
+          println("getSock")
           case None =>
         }
       }
       check
     }
-    def sendData(ip:String, file: Future[BigInputFile], st:Int, ed: Int) = Future {
-      getSock(ip) onSuccess {
-        case sock : SocketChannel => write(sock)
+    def sendData(ip:String, file: Future[BigInputFile], st:Int, ed: Int) = {
+        println(ip)
+        println(ip2Sock)
+        val sock = Await.result (getSock(ip), Duration.Inf)
+        write(sock)
+        println(serverList)
+        println(clientList)
+    }
+    def wakeup() = {
+      slaveClientSock.selector.wakeup();
+      if(!slaveClientSock.ip2Sock.isEmpty) {
+          ip2Sock.toList.map {_._2.close}
+      }
+      slaveServerSock.selector.wakeup();
+      if(slaveServerSock.serverChannel != null) {
+          slaveServerSock.serverChannel.close
       }
     }
   }
@@ -131,31 +155,36 @@ class SlaveServerSock(val ipList : List[String]) extends SlaveSock with Runnable
   var ip2Sock : Map[String, SocketChannel] = Map.empty
   def run(): Unit =
   {
-    serverChannel.bind(new InetSocketAddress("localhost",myIpPort._2))
-    serverChannel.configureBlocking(false)
-    serverChannel.register(selector, OP_ACCEPT)
-    while(selector.select > 0){
-      val it = selector.selectedKeys().iterator()
-      while(it.hasNext){
-        val selected = it.next
-        if(selected.isAcceptable){
-          accept(selected)
-        }
-        else if(selected.isConnectable) {
-          val channel = selected.channel()
-          channel match {
-            case sockChan :  SocketChannel =>
-              connect(sockChan)
-              ip2Sock = ip2Sock +(sockChan.getRemoteAddress.toString -> sockChan)
-            case _ => throw new Exception("only socket can connect")
+        if(!serverList.isEmpty){
+
+        serverChannel.bind(new InetSocketAddress(InetAddress.getByName(myIpPort._1),myIpPort._2))
+        serverChannel.configureBlocking(false)
+        serverChannel.register(selector, OP_ACCEPT)
+        while(selector.select > 0){
+          val it = selector.selectedKeys().iterator()
+          while(it.hasNext){
+            val selected = it.next
+            it.remove()
+            println("selected is Readable?")
+            println(selected.isReadable)
+            if(selected.isAcceptable){
+              accept(selected)
+            }
+            else if(selected.isConnectable) {
+              val channel = selected.channel()
+              channel match {
+                case sockChan :  SocketChannel =>
+                  connect(sockChan)
+                case _ => throw new Exception("only socket can connect")
+              }
+            }
+            else if(selected.isReadable){
+              read(selected)
+            }
           }
+        } 
+        println("selector escape")
         }
-        else if(selected.isReadable){
-          read(selected)
-        }
-      }
-      it.remove()
-    }
   }
 
   def accept(selectionKey : SelectionKey): Unit =
@@ -165,7 +194,9 @@ class SlaveServerSock(val ipList : List[String]) extends SlaveSock with Runnable
       case serverChan: ServerSocketChannel =>
         val clientSock = serverChan.accept()
         clientSock.configureBlocking(false)
-        clientSock.register(selector,OP_CONNECT | OP_READ )
+        clientSock.register(selector,OP_READ )
+        ip2Sock = ip2Sock +(clientSock.getRemoteAddress.toString.toIPList.toIPString -> clientSock)
+        print(ip2Sock)
         println("one client accepted.")
       case _ => throw new Exception("only ServerSocket can accept")
     }
@@ -175,20 +206,26 @@ class SlaveServerSock(val ipList : List[String]) extends SlaveSock with Runnable
 
 /* I need many slaveSock... (maybe..?) */
 class SlaveClientSock(val ipList : List[String]) extends SlaveSock with Runnable {
-  lazy val ip2Sock : Map[String, SocketChannel] = ( for (ip <- clientList) yield
+  val ip2Sock : Map[String, SocketChannel] = ( for (ip <- clientList) yield
       {
         val addr = new InetSocketAddress(InetAddress.getByName(ip._1), ip._2)
+        println(ip._1)
         val sock = SocketChannel.open(addr)
         sock.configureBlocking(false)
-        sock.register(selector, OP_CONNECT | OP_READ )
+        sock.register(selector, OP_READ )
         (ip._1, sock)
       }).toMap
   def run() =
   {
+    if(!ip2Sock.isEmpty){
     while(selector.select() > 0) {
       val it = selector.selectedKeys().iterator()
       while(it.hasNext){
         val selected = it.next
+        it.remove()
+        println("selected is Readable?")
+        println(selected.isReadable)
+        println(selected.isConnectable)
         if(selected.isConnectable){
           val channel = selected.channel()
           channel match {
@@ -200,7 +237,7 @@ class SlaveClientSock(val ipList : List[String]) extends SlaveSock with Runnable
         else if(selected.isReadable){
           read(selected)
         }
-        it.remove()
+        }
       }
     }
   }
