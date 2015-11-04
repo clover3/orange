@@ -5,6 +5,7 @@ import java.nio.channels._
 
 import common.typedef._
 
+import scala.concurrent.Future
 import scala.io._
 
 package object slave {
@@ -128,6 +129,10 @@ package object slave {
       val slaveCalculation = SlaveSampler(slaveSocket, inputDirs, outputDir)
       val partitions : Partitions = slaveCalculation.getPartition
       print("this is partition : "); println (partitions)
+      val ipList = partitions map {_._1}
+      val slaveSock = SlaveSock(ipList)
+      val f : Future[BigOutputFile] = slaveSock.recvData("127.0.0.1")
+      println(f.isCompleted)
     }
   }
 

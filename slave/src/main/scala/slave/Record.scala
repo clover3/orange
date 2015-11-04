@@ -3,10 +3,25 @@
  */
 
 package slave
+import java.nio._
 
 package object Record {
 
   type Record = (String, String)
+
+  def parseRecordBuffer(buf : ByteBuffer) : Vector[Record] = {
+    val arr = buf.array()
+    val totallen = buf.limit()
+    val recordnum = totallen / 100
+    val result : Vector[Record] = (for (i <- Range(0, recordnum))
+      yield {
+        val idx0 = i * 100
+        val idx1 = idx0 + 10
+        val idx2 = idx1 + 90
+        (new String(arr.slice(idx0, idx1)), new String(arr.slice(idx1, idx2)))
+      }).toVector
+    result
+  }
 
   implicit class PartitionCompanionOps(val rec: Record) extends AnyVal {
     def key: String = rec._1
