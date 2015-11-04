@@ -63,7 +63,7 @@ class BigInputFile(inputDirs : List[String]) extends IBigFile {
 //        val sum = for (line <- Source.fromFile(file).getLines()) yield {
 //        } sum
 //      }
-
+    1 // just for compile..
     }
 
   // get i'th record
@@ -89,6 +89,7 @@ class BigInputFile(inputDirs : List[String]) extends IBigFile {
     //    val indexedVectorRecord : Vector[Record] = vectorRecordAllFile.slice(st,ed)
     //
     //  }
+    ??? // just for compile...
   }
 
 
