@@ -113,7 +113,7 @@ package object SlaveSorter {
           mergeIteration
       }
       mergeIteration
-      output
+      output.toInputFile
     }
   }
 
@@ -145,7 +145,10 @@ package object SlaveSorter {
     p.future
   }
 
-  def getBlockSize(memSize :Int) : Int = memSize / 100 / 2
+  def getBlockSize(memSize :Int) : Int = {
+    10000
+    //memSize / 100 / 2
+  }
   // continueWith
 
   // DivideChunk: (IBigFile,blockSize) -> (IBigFile,st,ed)
@@ -170,9 +173,10 @@ package object SlaveSorter {
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
         val data = Await.result(read_sort(inFile, st, ed), Duration.Inf)
-        val outfile : BigOutputFile = ???
+        printRecVector(data, 10)
+        val outfile : IOutputFile = new NullOutputFile
         outfile.setRecords(data)
-        outfile
+        outfile.toInputFile
       }
     }
 
@@ -182,8 +186,9 @@ package object SlaveSorter {
     }
 
     def generateSortedChunks(input: IBigFile): List[IBigFile] = {
-      val mem = rs.remainingMemory - 10 * rs.mb
+      val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem)
+      println("mem :"+mem + " blockSize:"+ blockSize)
       val inputSeq = divideChunk(input, blockSize, "sortedChunk")
       inputSeq.map(read_sort_write).toList
     }
@@ -224,14 +229,15 @@ package object SlaveSorter {
         }
         val futureSortedChunk : Future[Vector[Record]] = mergeMiniChunk(all(futureChunks))
         val sortedBigChunk : Vector[Record] = Await.result(futureSortedChunk, Duration.Inf)
-        val outfile: BigOutputFile = ??? /// new BigOutputFile(outfileName)
+        val outfile: IOutputFile = ??? /// new BigOutputFile(outfileName)
         outfile.setRecords(sortedBigChunk)
-        outfile
+        outfile.toInputFile
       }
     }
 
     override def generateSortedChunks(input: IBigFile): List[IBigFile] = {
-      val mem = rs.remainingMemory - 10 * rs.mb
+      val mem = rs.remainingMemory
+      println("Mem : " + mem)
       val blockSize = getBlockSize(mem)
       val inputSeq = divideChunk(input, blockSize, "sortedChunk")
       inputSeq.map(sortChunk).toList
