@@ -3,6 +3,7 @@
 
 libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
 
+libraryDependencies += "io.netty" % "netty-all" % "4.0.4.Final"
 
 unmanagedBase <<= baseDirectory { base => base / "lib" }
 
@@ -11,6 +12,8 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.7"
     , libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
     , libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.2"
+    , libraryDependencies += "io.netty" % "netty-all" % "4.0.4.Final"
+    , libraryDependencies += "commons-logging" % "commons-logging" % "1.2"
     , fork in run := true
     , connectInput in run := true
 )

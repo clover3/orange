@@ -72,7 +72,7 @@ class BigInputFile(inputDirs : List[String]) extends IBigFile {
 
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Future[Vector[Record]] = {
+  def getRecords(st: Int, ed: Int): Vector[Record] = {
     // 1.read file from inputDir -> 2.make fileList ->3. get Record -> 4.make Records
 
     //     // var ListRecordEachFile : vector[Record]
@@ -138,7 +138,9 @@ class NullOutputFile extends IOutputFile {
 }
 
   // Delete abstract keyword after implementing BigFile
- abstract class BigOutputFile(outputPath: String) extends IOutputFile {
-    def setRecords(records : Vector[Record]) : Future[Unit]
+class BigOutputFile(outputPath: String) extends IOutputFile {
+    def setRecords(records : Vector[Record]) : Future[Unit] = ???
+    def write(record: Record ) : Future[Unit] = ???
+    def toInputFile : IBigFile = ???
 
   }

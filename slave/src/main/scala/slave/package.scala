@@ -4,6 +4,7 @@ import java.nio._
 import java.nio.channels._
 
 import common.typedef._
+import org.apache.commons.logging.LogFactory
 
 import scala.concurrent.Future
 import scala.io._

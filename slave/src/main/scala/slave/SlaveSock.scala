@@ -3,8 +3,17 @@ package slave
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.nio.channels._
 import java.nio.channels.SelectionKey._
+import java.util
+import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
+import io.netty.buffer.ByteBuf
+import io.netty.channel._
+import io.netty.channel.socket._
+import io.netty.channel.nio.NioEventLoop
+import io.netty.channel.socket.nio.{NioSocketChannel, NioServerSocketChannel}
+import io.netty.handler.codec.ByteToMessageDecoder
+import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import org.apache.commons.logging.LogFactory
 import slave.Record._
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.lang.Thread
@@ -14,7 +23,6 @@ import common.typedef._
 import scala.concurrent.{Promise, Future}
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
 /**
  * Created by Soyeon on 2015-10-31.
  */
@@ -23,76 +31,58 @@ import scala.concurrent.duration._
  *  it is extracted by partition list.. (because I need shared ipList...)
  *  */
 
+
+// given IP and bytes, write downs data into IBigFile
+class ByteConsumer{
+  var ip2inBigfile : Map[String, BigOutputFile] = Map.empty
+  var inBigFile : List[(String, Promise[BigInputFile])] = Nil
+
+  def read(sockIp : String, records : Vector[Record]) : Unit =
+  {
+    println("read ### ")
+
+    if(ip2inBigfile.contains(sockIp))
+      ip2inBigfile(sockIp).setRecords(records)
+    else {
+      val outBigfile = new BigOutputFile("outputdir")
+      outBigfile.setRecords(records)
+      ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
+    }
+
+  }
+  def get2Map() : Map[String,BigOutputFile] = ip2inBigfile
+}
+
+
 trait SlaveSock {
   val ipList : List[String]
   lazy val slaveNum : Int = ipList.length
   var basePort : Int = 5000
   lazy val ipPortList : List[(String, Int)] = ipList.map { ip : String => {basePort = basePort + 1; (ip, basePort)}}
-  val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString 
+  val myIp : String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
   /*val myIp = "127.0.0.1"*/
   lazy val (serverList, cList) : (List[(String, Int)], List[(String, Int)]) = ipPortList.span( _._1 != myIp)
   lazy val myIpPort : (String, Int) = cList.head
   lazy val clientList = cList.tail
-  var ip2inBigfile : Map[String, BigOutputFile] = Map.empty
+
   val buf : ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
-  val selector = Selector.open()
-  var inBigFile : List[(String, Promise[BigInputFile])] = Nil
-  lazy val isWritable : List[(String,Boolean)] = {
-    (for(i <- Range(0, slaveNum)) yield {
-      (ipList(i), false)
-    }).toList
-  }
-  def connect(sockChan : SocketChannel): Unit =
-  {
-    if(sockChan.isConnectionPending)
-      println(" # connection is pending")
-    sockChan.finishConnect()
-  }
-  def read(selectionKey: SelectionKey) : Unit =
-  {
-    println("read ### ")
-    val channel = selectionKey.channel()
-    println(channel)
-    channel match {
-      case sockChan : SocketChannel =>
-        val n = sockChan.read(buf)
-        println(n)
-        if(n == -1)
-        {
-            sockChan.close
-        }
-        buf.flip()
-        print(buf)
-        /*
-        val records = parseRecordBuffer(buf)
-        val sockIp = sockChan.socket().getInetAddress.toString
-        if(ip2inBigfile.contains(sockIp))
-          ip2inBigfile(sockIp).append(records)
-        else {
-          val outBigfile = new BigOutputFile("outputdir")
-          outBigfile.setRecords(records)
-          ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
-        }
-        */
-        buf.clear()
-      case _ => throw new Exception("only socket can read")
-    }
-  }
-  def write(sock : SocketChannel) : Unit =
+
+  def write(sock : Channel) : Unit =
   {
     println("write hi")
     sock.write(ByteBuffer.wrap("hi".getBytes()))
-       /*
-       inBigFile onSuccess {
-       case Bigfile => while(Bigfile.position != Bigfile.send_capacity){
-         BigFile -> buf // split buf size..
-         buf -> sock.write(buf)
-         Bigfile.position = Bigfile.position + size(buf)
-          }
-        }
-        */
+    /*
+    inBigFile onSuccess {
+    case Bigfile => while(Bigfile.position != Bigfile.send_capacity){
+      BigFile -> buf // split buf size..
+      buf -> sock.write(buf)
+      Bigfile.position = Bigfile.position + size(buf)
+       }
+     }
+     */
   }
 }
+
 
 
 object SlaveSock {
@@ -100,13 +90,11 @@ object SlaveSock {
   def apply(ips : List[String]) = new SlaveSock {
     val ipList = ips
     val slaveServerSock = new SlaveServerSock(ipList)
-    val serverThread = new Thread(slaveServerSock)
+    slaveServerSock.start()
     val slaveClientSock = new SlaveClientSock(ipList)
-    val clientThread = new Thread(slaveClientSock)
-    clientThread.start()
-    serverThread.start()
-    def ip2Bigfile : Map[String, BigOutputFile] = slaveServerSock.ip2inBigfile ++ slaveClientSock.ip2inBigfile
-    def ip2Sock : Map[String, SocketChannel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
+    slaveClientSock.start()
+    def ip2Bigfile : Map[String, BigOutputFile] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
+    def ip2Sock : Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
     def recvData(ip : String) : Future[BigOutputFile] = Future {
       var check : BigOutputFile= null
       while (check == null) {
@@ -117,128 +105,146 @@ object SlaveSock {
       }
       check
     }
-    def getSock(ip : String) : Future[SocketChannel] = Future {
-      var check : SocketChannel = null
+    def getSock(ip : String) : Future[Channel] = Future {
+      var check : Channel = null
       while(check == null) {
         ip2Sock.get(ip) match {
           case Some(sock) => check = sock
-          println("getSock")
+            println("getSock")
           case None =>
         }
       }
       check
     }
     def sendData(ip:String, file: Future[BigInputFile], st:Int, ed: Int) = {
-        println(ip)
-        println(ip2Sock)
-        val sock = Await.result (getSock(ip), Duration.Inf)
-        write(sock)
-        println(serverList)
-        println(clientList)
+      println(ip)
+      println(ip2Sock)
+      val sock = Await.result (getSock(ip), Duration.Inf)
+      write(sock)
+      println(serverList)
+      println(clientList)
     }
-    def wakeup() = {
-      slaveClientSock.selector.wakeup();
-      if(!slaveClientSock.ip2Sock.isEmpty) {
-          ip2Sock.toList.map {_._2.close}
-      }
-      slaveServerSock.selector.wakeup();
-      if(slaveServerSock.serverChannel != null) {
-          slaveServerSock.serverChannel.close
-      }
+  }
+}
+
+class Buf2VectorRecordDecode extends ByteToMessageDecoder {
+  override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
+    if(byteBuf.readableBytes() < 100) {
+      return;
     }
+    val recordnum: Int = byteBuf.readableBytes() / 100
+    val result : Vector[Record] = (for (i <- Range(0, recordnum))
+    yield {
+      (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+    }).toVector
+    list.add(result)
+  }
+}
+
+class ServerHandler(ip:String, byteconsumer : ByteConsumer) extends ChannelInboundHandlerAdapter {
+  override def channelRead(channelHandlerContext: ChannelHandlerContext, msg : Object) = {
+    val vectorRecord : Vector[Record] = msg.asInstanceOf[Vector[Record]]
+    byteconsumer.read(ip, vectorRecord)
+  }
+  override def channelReadComplete(channelHandlerContext: ChannelHandlerContext): Unit = {
+
+  }
+  override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, cause : Throwable): Unit = {
+    cause.printStackTrace()
+    channelHandlerContext.clone()
   }
 }
 
 /* I need one serverSock.. (maybe..?) */
-class SlaveServerSock(val ipList : List[String]) extends SlaveSock with Runnable {
-  val serverChannel  = ServerSocketChannel.open()
+class SlaveServerSock(val ipList : List[String]) extends SlaveSock {
+  val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
   var ip2Sock : Map[String, SocketChannel] = Map.empty
-  def run(): Unit =
+  val parentGroup = new NioEventLoop(1)
+  val childGroup = new NioEventLoop()
+  val byteConsumer = new ByteConsumer ()
+  def start(): Unit =
   {
-        if(!serverList.isEmpty){
-
-        serverChannel.bind(new InetSocketAddress(InetAddress.getByName(myIpPort._1),myIpPort._2))
-        serverChannel.configureBlocking(false)
-        serverChannel.register(selector, OP_ACCEPT)
-        while(selector.select > 0){
-          val it = selector.selectedKeys().iterator()
-          while(it.hasNext){
-            val selected = it.next
-            it.remove()
-            println("selected is Readable?")
-            println(selected.isReadable)
-            if(selected.isAcceptable){
-              accept(selected)
+    if(!serverList.isEmpty){
+      try {
+        val hostname = InetAddress.getByName(myIpPort._1)
+        val port = myIpPort._2
+        val bs: ServerBootstrap = new ServerBootstrap()
+        bs.group(parentGroup, childGroup)
+          .channel(classOf[NioServerSocketChannel])
+          .handler(new LoggingHandler(LogLevel.INFO))
+          .childHandler(new ChannelInitializer[SocketChannel] {
+            override def initChannel(c: SocketChannel): Unit = {
+              LOG.info("ConnectionReceiver accepted : " + c.remoteAddress())
+              ip2Sock = ip2Sock + (c.remoteAddress().toString.toIPList.toIPString -> c)
+              LOG.info(ip2Sock)
+              val cp: ChannelPipeline = c.pipeline
+              cp.addLast(new Buf2VectorRecordDecode())
+              cp.addLast(new ServerHandler(c.remoteAddress().toString.toIPList.toIPString, byteConsumer))
             }
-            else if(selected.isConnectable) {
-              val channel = selected.channel()
-              channel match {
-                case sockChan :  SocketChannel =>
-                  connect(sockChan)
-                case _ => throw new Exception("only socket can connect")
-              }
-            }
-            else if(selected.isReadable){
-              read(selected)
-            }
-          }
-        } 
-        println("selector escape")
-        }
-  }
-
-  def accept(selectionKey : SelectionKey): Unit =
-  {
-    val channel = selectionKey.channel()
-    channel match {
-      case serverChan: ServerSocketChannel =>
-        val clientSock = serverChan.accept()
-        clientSock.configureBlocking(false)
-        clientSock.register(selector,OP_READ )
-        ip2Sock = ip2Sock +(clientSock.getRemoteAddress.toString.toIPList.toIPString -> clientSock)
-        print(ip2Sock)
-        println("one client accepted.")
-      case _ => throw new Exception("only ServerSocket can accept")
+          })
+        val cf: ChannelFuture = bs.bind(port).sync()
+        cf.channel().closeFuture().sync()
+      } catch {
+        case e => e.printStackTrace()
+      } finally {
+        LOG.info("cf escape")
+        parentGroup.shutdownGracefully()
+        childGroup.shutdownGracefully()
+      }
     }
   }
 }
 
+class myClientHandler(ip : String, byteConsumer: ByteConsumer) extends ChannelInboundHandlerAdapter {
+  override def channelReadComplete(channelHandlerContext: ChannelHandlerContext): Unit = {
+
+  }
+  override def channelRead(channelHandlerContext: ChannelHandlerContext, o: scala.Any): Unit = {
+    val vectorRecord : Vector[Record] = o.asInstanceOf[Vector[Record]]
+    byteConsumer.read(ip, vectorRecord)
+  }
+  override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, throwable: Throwable): Unit = {
+    throwable.printStackTrace()
+    channelHandlerContext.clone()
+  }
+}
 
 /* I need many slaveSock... (maybe..?) */
-class SlaveClientSock(val ipList : List[String]) extends SlaveSock with Runnable {
-  val ip2Sock : Map[String, SocketChannel] = ( for (ip <- clientList) yield
-      {
-        val addr = new InetSocketAddress(InetAddress.getByName(ip._1), ip._2)
-        println(ip._1)
-        val sock = SocketChannel.open(addr)
-        sock.configureBlocking(false)
-        sock.register(selector, OP_READ )
-        (ip._1, sock)
-      }).toMap
-  def run() =
+class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
+  val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
+  var ip2Sock : Map[String, Channel] = Map.empty
+  val group = new NioEventLoop()
+  val byteConsumer = new ByteConsumer ()
+  def start() =
   {
     if(!ip2Sock.isEmpty){
-    while(selector.select() > 0) {
-      val it = selector.selectedKeys().iterator()
-      while(it.hasNext){
-        val selected = it.next
-        it.remove()
-        println("selected is Readable?")
-        println(selected.isReadable)
-        println(selected.isConnectable)
-        if(selected.isConnectable){
-          val channel = selected.channel()
-          channel match {
-            case sockChan : SocketChannel =>
-              connect(sockChan)
-            case _ => throw new Exception("only socket can connect")
-          }
+      try {
+        val b: Bootstrap = new Bootstrap()
+        b.group(group)
+          .channel(classOf[NioSocketChannel])
+          .handler(new ChannelInitializer[SocketChannel] {
+            override def initChannel(c: SocketChannel): Unit = {
+              val cp: ChannelPipeline = c.pipeline()
+              cp.addLast(new Buf2VectorRecordDecode())
+              cp.addLast(new myClientHandler(c.remoteAddress().toString.toIPList.toIPString, byteConsumer))
+            }
+          })
+
+        ip2Sock = (for (ip <- clientList) yield {
+          val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
+          (ip._1, cf.channel())
+        }).toMap
+        for (cf <- ip2Sock.toList.map {
+          _._2
+        }) {
+          cf.closeFuture().sync()
         }
-        else if(selected.isReadable){
-          read(selected)
-        }
-        }
+      } catch {
+        case e => e.printStackTrace()
+      } finally {
+        LOG.info("cf escape")
       }
+
     }
   }
 }
