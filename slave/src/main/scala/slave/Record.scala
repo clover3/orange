@@ -35,4 +35,8 @@ package object Record {
     }
   }
 
+  def printRecVector(vectRec : Vector[Record], num :Int) = {
+    vectRec.slice(0, num).map( rec => println(rec.key) )
+  }
+
 }
