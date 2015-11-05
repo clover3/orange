@@ -141,10 +141,11 @@ package object slave {
       println(ipList)
       println(InetAddress.getLocalHost.getHostAddress)
       ipList.map {ip => 
+      Thread.sleep(6000)
       if(InetAddress.getLocalHost.getHostAddress != ip) 
           slaveSock.sendData(ip, Future{???}, 1, 2)}
       Thread.sleep(6000)
-
+      slaveSock.death()
       ()
 
     }
