@@ -144,7 +144,7 @@ package object slave {
       if(InetAddress.getLocalHost.getHostAddress != ip) 
           slaveSock.sendData(ip, Future{???}, 1, 2)}
       Thread.sleep(6000)
-      slaveSock.wakeup()
+
       ()
 
     }

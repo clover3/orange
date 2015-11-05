@@ -9,7 +9,7 @@ import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
 import io.netty.buffer.ByteBuf
 import io.netty.channel._
 import io.netty.channel.socket._
-import io.netty.channel.nio.NioEventLoop
+import io.netty.channel.nio.{NioEventLoopGroup, NioEventLoop}
 import io.netty.channel.socket.nio.{NioSocketChannel, NioServerSocketChannel}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
@@ -151,7 +151,7 @@ class ServerHandler(ip:String, byteconsumer : ByteConsumer) extends ChannelInbou
   }
   override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, cause : Throwable): Unit = {
     cause.printStackTrace()
-    channelHandlerContext.clone()
+    channelHandlerContext.close()
   }
 }
 
@@ -159,8 +159,8 @@ class ServerHandler(ip:String, byteconsumer : ByteConsumer) extends ChannelInbou
 class SlaveServerSock(val ipList : List[String]) extends SlaveSock {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
   var ip2Sock : Map[String, SocketChannel] = Map.empty
-  val parentGroup = new NioEventLoop(1)
-  val childGroup = new NioEventLoop()
+  val parentGroup = new NioEventLoopGroup(1)
+  val childGroup = new NioEventLoopGroup()
   val byteConsumer = new ByteConsumer ()
   def start(): Unit =
   {
@@ -185,7 +185,7 @@ class SlaveServerSock(val ipList : List[String]) extends SlaveSock {
         val cf: ChannelFuture = bs.bind(port).sync()
         cf.channel().closeFuture().sync()
       } catch {
-        case e => e.printStackTrace()
+        case e : Throwable => e.printStackTrace()
       } finally {
         LOG.info("cf escape")
         parentGroup.shutdownGracefully()
@@ -205,7 +205,7 @@ class myClientHandler(ip : String, byteConsumer: ByteConsumer) extends ChannelIn
   }
   override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, throwable: Throwable): Unit = {
     throwable.printStackTrace()
-    channelHandlerContext.clone()
+    channelHandlerContext.close()
   }
 }
 
@@ -213,7 +213,7 @@ class myClientHandler(ip : String, byteConsumer: ByteConsumer) extends ChannelIn
 class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   var ip2Sock : Map[String, Channel] = Map.empty
-  val group = new NioEventLoop()
+  val group = new NioEventLoopGroup()
   val byteConsumer = new ByteConsumer ()
   def start() =
   {
@@ -240,7 +240,7 @@ class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
           cf.closeFuture().sync()
         }
       } catch {
-        case e => e.printStackTrace()
+        case e : Throwable => e.printStackTrace()
       } finally {
         LOG.info("cf escape")
       }
