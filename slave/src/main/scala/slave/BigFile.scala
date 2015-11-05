@@ -9,6 +9,7 @@ import java.io.{FileNotFoundException, File}
 import common.typedef._
 import slave.Record._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.io.Source
 
@@ -95,8 +96,49 @@ class BigInputFile(inputDirs : List[String]) extends IBigFile {
 
 }
 
+class ConstFile extends IBigFile{
+  // returns total number of records in this file
+  def numOfRecords: Int = 327680
+
+  // get i'th record
+  def getRecord(i: Int): Record = {
+    val keyVal = 100* 10000 - i
+    val keyString = "%d".format(keyVal)
+    val dataString = "7" * 100
+    (keyString, dataString)
+  }
+
+  // return collection of records
+  // starting from st to ed  ( it should not include ed'th record )
+  def getRecords(st: Int, ed: Int): Future[Vector[Record]] =
+  {
+    Future {
+      val seq = for (i <- Range(st, ed)) yield getRecord(i)
+      seq.toVector
+    }
+  }
+
+}
+
+trait IOutputFile {
+  def setRecords(records : Vector[Record]) : Future[Unit]
+  def write(record: Record ) : Future[Unit]
+  def toInputFile : IBigFile
+}
+
+class NullOutputFile extends IOutputFile {
+  def setRecords(records : Vector[Record]) : Future[Unit] = Future{
+  }
+  def write(record: Record ) : Future[Unit] = Future {
+
+  }
+
+  def toInputFile : IBigFile = new ConstFile
+
+}
+
   // Delete abstract keyword after implementing BigFile
- abstract class BigOutputFile(outputPath: String) extends IBigFile {
+ abstract class BigOutputFile(outputPath: String) extends IOutputFile {
     def setRecords(records : Vector[Record]) : Future[Unit]
 
   }
