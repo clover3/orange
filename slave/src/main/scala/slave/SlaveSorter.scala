@@ -173,7 +173,7 @@ package object SlaveSorter {
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
         val data = Await.result(read_sort(inFile, st, ed), Duration.Inf)
-        printRecVector(data, 10)
+//        printRecVector(data, 10)
         val outfile : IOutputFile = new NullOutputFile
         outfile.setRecords(data)
         outfile.toInputFile
@@ -181,7 +181,7 @@ package object SlaveSorter {
     }
 
     def read_sort(file: IBigFile, st: Int, ed: Int): Future[Vector[Record]] = async{
-      val data : Vector[Record] = await( file.getRecords(st,ed) )
+      val data : Vector[Record] = file.getRecords(st,ed) 
       sort(data)
     }
 

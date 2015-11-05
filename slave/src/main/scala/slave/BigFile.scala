@@ -23,7 +23,7 @@ trait IBigFile {
 
     // return collection of records
     // starting from st to ed  ( it should not include ed'th record )
-    def getRecords(st: Int, ed: Int): Future[Vector[Record]]
+    def getRecords(st: Int, ed: Int): Vector[Record]
 
 }
 
@@ -110,12 +110,12 @@ class ConstFile extends IBigFile{
 
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Future[Vector[Record]] =
+  def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-    Future {
+  
       val seq = for (i <- Range(st, ed)) yield getRecord(i)
       seq.toVector
-    }
+    
   }
 
 }
