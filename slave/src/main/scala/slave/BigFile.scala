@@ -130,7 +130,7 @@ class NullOutputFile extends IOutputFile {
 
   // Delete abstract keyword after implementing BigFile
 class BigOutputFile(outputPath: String) extends IOutputFile {
-
+//that has two case -> file is exist or non-exist.
 
     def setRecords(records: Vector[Record]): Future[Unit] = Future {
       val d = new File(outputPath)
