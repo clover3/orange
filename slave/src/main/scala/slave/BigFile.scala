@@ -50,8 +50,12 @@ class BigInputFile(inputDirs : List[String])  extends IBigFile{
 
   // get i'th record
   def getRecord(i: Int): Record = {
+
+    val fileIndex :Int = i/numOfRecords
+    val recordIndex : Int = i%numOfRecords
+
     //define randomAccessFile just for read("r)
-    val raf = new RandomAccessFile(fileList.head, "r")
+    val raf = new RandomAccessFile(fileList(fileIndex), "r")
 
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
@@ -63,7 +67,7 @@ class BigInputFile(inputDirs : List[String])  extends IBigFile{
     val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
 
     //set position
-    var pos :Long = (totalOffset) * i
+    var pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
 
     //val keyVal = raf.readLine().take(keyOffset.toInt)
