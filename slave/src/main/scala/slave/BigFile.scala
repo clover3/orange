@@ -25,6 +25,9 @@ trait IBigFile {
     // starting from st to ed  ( it should not include ed'th record )
     def getRecords(st: Int, ed: Int): Vector[Record]
 
+    // return index of key in sorted file
+    def getIndexofKey(key : String) :  Int
+
 }
 
 
@@ -88,6 +91,9 @@ class BigInputFile(inputDirs : List[String])  extends IBigFile{
     
   }
 
+  //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
+  def getIndexofKey(key : String) :  Int = ???
+
 }
 
 class ConstFile extends IBigFile{
@@ -108,6 +114,9 @@ class ConstFile extends IBigFile{
     val seq = for (i <- Range(st, ed)) yield getRecord(i)
     seq.toVector
   }
+
+
+  def getIndexofKey(key : String) :  Int = ???
 
 }
 
@@ -191,7 +200,10 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
       }
 
     }
-    def toInputFile : IBigFile = new ConstFile
+    def toInputFile : IBigFile = {
+      val dir : List[String] = outputPath::Nil
+      new BigInputFile(dir)
+    }
 }
 
 class BigOutputFile_temp(outputPath: String) extends IOutputFile {
