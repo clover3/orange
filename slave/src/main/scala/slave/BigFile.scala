@@ -121,7 +121,7 @@ class NullOutputFile extends IOutputFile {
 
   }
 
-  def toInputFile : IBigFile = new ConstFile(Nil)
+  def toInputFile : IBigFile = new ConstFile
 
 }
 
