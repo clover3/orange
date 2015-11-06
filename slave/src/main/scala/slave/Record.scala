@@ -7,6 +7,9 @@ import java.nio._
 
 package object Record {
 
+  val keyLimitMin = 0.toChar.toString * 10
+  val keyLimitMax = 126.toChar.toString * 10
+
   type Record = (String, String)
 
   def parseRecordBuffer(buf : ByteBuffer) : Vector[Record] = {
@@ -38,5 +41,6 @@ package object Record {
   def printRecVector(vectRec : Vector[Record], num :Int) = {
     vectRec.slice(0, num).map( rec => println(rec.key) )
   }
+
 
 }

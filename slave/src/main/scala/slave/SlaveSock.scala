@@ -7,6 +7,7 @@ import java.nio.channels.SelectionKey._
 import java.util
 import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.channel.socket._
 import io.netty.channel.nio.{NioEventLoopGroup, NioEventLoop}
@@ -39,8 +40,8 @@ class ByteConsumer{
 
   def read(sockIp : String, records : Vector[Record]) : Unit =
   {
-    println("read ### ")
-
+    println("read ### records")
+/*
     if(ip2inBigfile.contains(sockIp))
       ip2inBigfile(sockIp).setRecords(records)
     else {
@@ -48,7 +49,8 @@ class ByteConsumer{
       outBigfile.setRecords(records)
       ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
     }
-
+*/
+    println(records)
   }
   def get2Map() : Map[String,BigOutputFile] = ip2inBigfile
 }
@@ -70,7 +72,10 @@ trait SlaveSock {
   def write(sock : Channel) : Unit =
   {
     println("write hi")
-    sock.write(ByteBuffer.wrap("hi".getBytes()))
+    if(sock.isWritable()) {
+    sock.writeAndFlush(Unpooled.wrappedBuffer(ByteBuffer.wrap("hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi".getBytes()))).await()
+    }
+    else throw new Exception("sock isn't writable")
     /*
     inBigFile onSuccess {
     case Bigfile => while(Bigfile.position != Bigfile.send_capacity){
@@ -90,9 +95,11 @@ object SlaveSock {
   def apply(ips : List[String]) = new SlaveSock {
     val ipList = ips
     val slaveServerSock = new SlaveServerSock(ipList)
-    slaveServerSock.start()
+    val serverThread = new Thread(slaveServerSock)
     val slaveClientSock = new SlaveClientSock(ipList)
-    slaveClientSock.start()
+    val clientThread = new Thread(slaveClientSock)
+    serverThread.start()
+    clientThread.start()
     def ip2Bigfile : Map[String, BigOutputFile] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
     def ip2Sock : Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
     def recvData(ip : String) : Future[BigOutputFile] = Future {
@@ -120,16 +127,24 @@ object SlaveSock {
       println(ip)
       println(ip2Sock)
       val sock = Await.result (getSock(ip), Duration.Inf)
+      print("sock in sendData")
+      println(sock)
       write(sock)
       println(serverList)
       println(clientList)
+    }
+    def death() = {
+      slaveServerSock.death()
+      slaveClientSock.death()
     }
   }
 }
 
 class Buf2VectorRecordDecode extends ByteToMessageDecoder {
   override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
+    println("Buf2VectorRecordDecode enter")
     if(byteBuf.readableBytes() < 100) {
+    println(" < 100")
       return;
     }
     val recordnum: Int = byteBuf.readableBytes() / 100
@@ -156,13 +171,17 @@ class ServerHandler(ip:String, byteconsumer : ByteConsumer) extends ChannelInbou
 }
 
 /* I need one serverSock.. (maybe..?) */
-class SlaveServerSock(val ipList : List[String]) extends SlaveSock {
+class SlaveServerSock(val ipList : List[String]) extends SlaveSock with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
-  var ip2Sock : Map[String, SocketChannel] = Map.empty
+  var ip2Sock : Map[String, Channel] = Map.empty
   val parentGroup = new NioEventLoopGroup(1)
   val childGroup = new NioEventLoopGroup()
   val byteConsumer = new ByteConsumer ()
-  def start(): Unit =
+  def death() = {
+    parentGroup.shutdownGracefully()
+    childGroup.shutdownGracefully()
+  }
+  def run(): Unit =
   {
     if(!serverList.isEmpty){
       try {
@@ -195,13 +214,13 @@ class SlaveServerSock(val ipList : List[String]) extends SlaveSock {
   }
 }
 
-class myClientHandler(ip : String, byteConsumer: ByteConsumer) extends ChannelInboundHandlerAdapter {
+class myClientHandler(c : SocketChannel, byteConsumer: ByteConsumer) extends ChannelInboundHandlerAdapter {
   override def channelReadComplete(channelHandlerContext: ChannelHandlerContext): Unit = {
 
   }
   override def channelRead(channelHandlerContext: ChannelHandlerContext, o: scala.Any): Unit = {
     val vectorRecord : Vector[Record] = o.asInstanceOf[Vector[Record]]
-    byteConsumer.read(ip, vectorRecord)
+    byteConsumer.read(c.remoteAddress().toString.toIPList.toIPString, vectorRecord)
   }
   override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, throwable: Throwable): Unit = {
     throwable.printStackTrace()
@@ -210,14 +229,15 @@ class myClientHandler(ip : String, byteConsumer: ByteConsumer) extends ChannelIn
 }
 
 /* I need many slaveSock... (maybe..?) */
-class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
+class SlaveClientSock(val ipList : List[String]) extends SlaveSock with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   var ip2Sock : Map[String, Channel] = Map.empty
   val group = new NioEventLoopGroup()
   val byteConsumer = new ByteConsumer ()
-  def start() =
+  def death() = group.shutdownGracefully()
+  def run() =
   {
-    if(!ip2Sock.isEmpty){
+    if(!clientList.isEmpty){
       try {
         val b: Bootstrap = new Bootstrap()
         b.group(group)
@@ -226,10 +246,10 @@ class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
             override def initChannel(c: SocketChannel): Unit = {
               val cp: ChannelPipeline = c.pipeline()
               cp.addLast(new Buf2VectorRecordDecode())
-              cp.addLast(new myClientHandler(c.remoteAddress().toString.toIPList.toIPString, byteConsumer))
+              cp.addLast(new myClientHandler(c, byteConsumer))
             }
           })
-
+        println(clientList)
         ip2Sock = (for (ip <- clientList) yield {
           val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
           (ip._1, cf.channel())
@@ -243,6 +263,7 @@ class SlaveClientSock(val ipList : List[String]) extends SlaveSock {
         case e : Throwable => e.printStackTrace()
       } finally {
         LOG.info("cf escape")
+        group.shutdownGracefully()
       }
 
     }

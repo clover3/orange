@@ -1,6 +1,8 @@
 
 package slave
 
+import slave.SlaveSorter.SlaveSorter
+
 object Main {
   
   def main(args: Array[String]) = {
