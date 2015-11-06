@@ -4,11 +4,14 @@ package slave
  * Created by Clover on 2015-10-30.
  */
 
-import java.io.{FileNotFoundException, File}
+import java.io._
+import java.nio.{ByteBuffer, MappedByteBuffer}
+import java.nio.channels.FileChannel
 
 import common.typedef._
 import slave.Record._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.io.Source
@@ -98,12 +101,12 @@ class BigInputFile(inputDirs : List[String]) extends IBigFile {
 
 class ConstFile extends IBigFile{
   // returns total number of records in this file
-  def numOfRecords: Int = 327680
+  def numOfRecords: Int = 327680 * 2
 
   // get i'th record
   def getRecord(i: Int): Record = {
-    val keyVal = 100* 10000 - i
-    val keyString = "%d".format(keyVal)
+    val keyVal = 1000* 10000 - i
+    val keyString = "%010d".format(keyVal)
     val dataString = "7" * 100
     (keyString, dataString)
   }
@@ -112,10 +115,11 @@ class ConstFile extends IBigFile{
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-  
-      val seq = for (i <- Range(st, ed)) yield getRecord(i)
-      seq.toVector
-    
+      val buf : ArrayBuffer[Record] = new ArrayBuffer(ed-st)
+      println("getRecords1")
+      val seq = for (i <- Range(st, ed)) yield buf+=getRecord(i)
+      println("getRecords2")
+      buf.toVector
   }
 
 }
@@ -139,8 +143,31 @@ class NullOutputFile extends IOutputFile {
 
   // Delete abstract keyword after implementing BigFile
 class BigOutputFile(outputPath: String) extends IOutputFile {
-    def setRecords(records : Vector[Record]) : Future[Unit] = ???
-    def write(record: Record ) : Future[Unit] = ???
-    def toInputFile : IBigFile = ???
+  def setRecords(records : Vector[Record]) : Future[Unit] = ???
+  def write(record: Record ) : Future[Unit] = ???
+  def toInputFile : IBigFile = ???
 
+}
+
+class BigOutputFile_temp(outputPath: String) extends IOutputFile {
+  def setRecords(records: Vector[Record]): Future[Unit] = Future{
+    println("setRecords : size="+ records.size)
+    val memoryMappedFile = new RandomAccessFile("largeFile2.txt", "rw");
+    //Mapping a file into memory
+    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, records.size * 112);
+    println("setRecords 1")
+    //Writing into Memory Mapped File
+    for(i <- Range(0,records.size) )
+    {
+      val pair = records(i)
+      val str = (pair._1 + " " + pair._2 + "\n")
+      val buf = ByteBuffer.wrap(str.getBytes)
+      out.put(buf)
+    }
+    memoryMappedFile.close()
+    println("setRecords end")
   }
+  def write(record: Record ) : Future[Unit] = ???
+  def toInputFile : IBigFile = new ConstFile
+
+}
