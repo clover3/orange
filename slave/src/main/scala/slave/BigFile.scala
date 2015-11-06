@@ -73,7 +73,7 @@ class BigInputFile(inputDirs : List[String])  extends IBigFile{
     val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
 
     //set position
-    var pos :Long = (totalOffset) * recordIndex
+    val pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
 
     //val keyVal = raf.readLine().take(keyOffset.toInt)
@@ -134,9 +134,6 @@ class NullOutputFile extends IOutputFile {
 
   // Delete abstract keyword after implementing BigFile
 class BigOutputFile(outputPath: String) extends IOutputFile {
-  def setRecords(records : Vector[Record]) : Future[Unit] = ???
-  def write(record: Record ) : Future[Unit] = ???
-  def toInputFile : IBigFile = ???
 
 }
 
