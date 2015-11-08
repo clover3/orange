@@ -38,18 +38,21 @@ package object slave {
     }
 
     def shuffle(partitions:Partitions, sortedFile: IBigFile) : List[IBigFile] = {
-      val forwardData : List[(String, IBigFile, Int, Int)] = ???
+      // val forwardData : List[(String, IBigFile, Int, Int)] = ???
+      val forwardData : List[(String, IBigFile, Int, Int)] = List(("127.0.0.1", sortedFile, 0, 10))
       val ipList = partitions map {_._1}
       val slaveSock = ShuffleSocket(ipList)
-      forwardData foreach (data => slaveSock.sendData(data._1, data._2, data._3, data._4))
+      val resultList = forwardData map (data => slaveSock.sendData(data._1, data._2, data._3, data._4))
       val files :List[BigOutputFile] = Await.result(all(ipList map (ip => slaveSock.recvData(ip))), Duration.Inf)
+      resultList foreach {Await.result(_, Duration.Inf)}
       slaveSock.death()
       files.map( f => f.toInputFile )
     }
 
     def run() = {
       val partitions     : Partitions     = getPartition
-      val sortedFile     : IBigFile       = sort
+      // val sortedFile     : IBigFile       = sort
+      val sortedFile : IBigFile = new ConstFile
       val netSortedFiles : List[IBigFile] = shuffle (partitions, sortedFile)
     }
   }

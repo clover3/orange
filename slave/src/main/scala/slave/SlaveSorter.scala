@@ -224,7 +224,8 @@ package object sorter {
   class SlaveSorter {
     def run(inputDirs: List[String]): IBigFile = {
       // initializing structs
-      val input: IBigFile = new MultiFile(inputDirs)
+      //val input: IBigFile = new MultiFile(inputDirs)
+      val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
       val merger: ChunkMerger = new SingleThreadMerger
       val sorter: ChunkSorter = new SingleThreadSorter(rs)
