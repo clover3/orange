@@ -1,7 +1,7 @@
 
 package slave
 
-import slave.SlaveSorter.SlaveSorter
+import slave.sorter.SlaveSorter
 
 object Main {
   

@@ -1,6 +1,8 @@
 package slave
 
 import slave.Record._
+import slave.future._
+
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.Duration
@@ -17,7 +19,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
  * Created by Clover on 2015-11-01.
  */
 
-package object SlaveSorter {
+package object sorter {
 
   // Phase 1 of the sorting process
   trait ChunkSorter {
@@ -105,7 +107,7 @@ package object SlaveSorter {
         }
 
         minArr(idxMin) = arrChunks(idxMin).getRecord( idxArr(idxMin) )
-        //output.write(minRec)
+        output.appendRecord(minRec)
 
         if( minArr.isEmpty )
           return
@@ -117,33 +119,6 @@ package object SlaveSorter {
     }
   }
 
-  def serialiseFutures[A, B](l: Iterable[A])(fn: A => Future[B])
-                            (implicit ec: ExecutionContext): Future[List[B]] = {
-    l.foldLeft(Future(List.empty[B])) {
-      (previousFuture, next) =>
-        for {
-          previousResults <- previousFuture
-          next <- fn(next)
-        } yield previousResults :+ next
-    }
-  }
-
-  def all[T](fs: List[Future[T]])(implicit ec: ExecutionContext): Future[List[T]] = {
-    val p = Promise[List[T]]()
-    fs match {
-      case head::tail => {
-        head onComplete{
-          case Failure(e) => p.failure(e)
-          case Success(x) => all(tail) onComplete {
-            case Failure(e) => p.failure(e)
-            case Success(y) => p.success(x :: y)
-          }
-        }
-      }
-      case Nil => p.success(Nil)
-    }
-    p.future
-  }
 
   def getBlockSize(memSize :Int) : Int = {
     1000 * 10000
@@ -249,7 +224,7 @@ package object SlaveSorter {
   class SlaveSorter {
     def run(inputDirs: List[String]): IBigFile = {
       // initializing structs
-      val input: IBigFile = new BigInputFile(inputDirs)
+      val input: IBigFile = new MultiFile(inputDirs)
       val rs:ResourceChecker = new ResourceChecker()
       val merger: ChunkMerger = new SingleThreadMerger
       val sorter: ChunkSorter = new SingleThreadSorter(rs)

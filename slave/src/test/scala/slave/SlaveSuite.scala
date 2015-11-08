@@ -2,11 +2,13 @@ package slave
 
 import common.typedef._
 import org.scalatest.FunSuite
+import slave.Sampler.SlaveSampler
+import slave.socket.PartitionSocket
 
 class SlaveSuite extends FunSuite {
 
   test("Slave Calculation Test"){
-    lazy val sock = new SlaveSocket("127.0.0.1:1234")
+    lazy val sock = new PartitionSocket("127.0.0.1:1234")
     val inputDirs = List("inputdir1", "inputdir2")
     val outputDir = "outdir"
     val calculation = SlaveSampler(sock, inputDirs, outputDir)

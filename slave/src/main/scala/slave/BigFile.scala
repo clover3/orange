@@ -32,7 +32,7 @@ trait IBigFile {
 
 
 // I add argument inputDirs(:List[String])
-class BigInputFile(inputDirs : List[String])  extends IBigFile{
+class MultiFile(inputDirs : List[String])  extends IBigFile{
 
   ///////////////////////////////////
   ///file Info
@@ -85,15 +85,53 @@ class BigInputFile(inputDirs : List[String])  extends IBigFile{
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-  
       val seq = for (i <- Range(st, ed)) yield getRecord(i)
       seq.toVector
-    
   }
 
   //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
   def getIndexofKey(key : String) :  Int = ???
 
+}
+
+class SingleFile(name : String) extends IBigFile {
+
+  def numOfRecords: Int = ???
+
+  // get i'th record
+  def getRecord(i: Int): Record = {
+
+    //define randomAccessFile just for read("r)
+    val raf = new RandomAccessFile(name, "r")
+
+    //set Offset for key or value
+    //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
+    //    10 - 32 - 52
+    val keyOffset :Long = 10
+    val valueOffset1 :Long = 32
+    val valueOffset2 :Long = 52
+    //num 2 blank for each blank !?!?
+    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+
+    //set position
+    val pos :Long = (totalOffset) * i
+    raf.seek(pos)
+
+    //val keyVal = raf.readLine().take(keyOffset.toInt)
+    val keyString = raf.readLine().take(keyOffset.toInt)
+    val dataString = raf.readLine().drop(keyOffset.toInt)
+    (keyString, dataString)
+  }
+
+  // return collection of records
+  // starting from st to ed  ( it should not include ed'th record )
+  def getRecords(st: Int, ed: Int): Vector[Record] =
+  {
+    val seq = for (i <- Range(st, ed)) yield getRecord(i)
+    seq.toVector
+  }
+
+  def getIndexofKey(key : String) :  Int = ???
 }
 
 class ConstFile extends IBigFile{
@@ -122,7 +160,7 @@ class ConstFile extends IBigFile{
 
 trait IOutputFile {
   def setRecords(records : Vector[Record]) : Future[Unit]
-  def write(record: Record ) : Future[Unit]
+  def appendRecord(record: Record ) : Future[Unit]
   def toInputFile : IBigFile
 }
 
@@ -132,7 +170,7 @@ class NullOutputFile extends IOutputFile {
   def write(record: Record ) : Future[Unit] = Future {
 
   }
-
+  def appendRecord(record: Record ) : Future[Unit] = ???
   def toInputFile : IBigFile = new ConstFile
 
 }
@@ -140,6 +178,13 @@ class NullOutputFile extends IOutputFile {
   // Delete abstract keyword after implementing BigFile
 class BigOutputFile(outputPath: String) extends IOutputFile {
 //that has two case -> file is exist or non-exist.
+  val memoryMappedFile : RandomAccessFile= {
+  val d = new File(outputPath)
+  if(d.exists)
+    new RandomAccessFile(d, "rw")
+  else
+    new RandomAccessFile(outputPath, "rw")
+  }
 
     def setRecords(records: Vector[Record]): Future[Unit] = Future {
       val d = new File(outputPath)
@@ -176,7 +221,8 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
       }
 
     }
-    def write(record: Record ) : Future[Unit] = Future {
+
+    def appendRecord(record: Record ) : Future[Unit] = Future {
       val d = new File(outputPath)
       if (d.exists && d.isDirectory) {
         val existFileList = d.listFiles.filter(_.isFile).toList
@@ -196,13 +242,11 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
         val buf = ByteBuffer.wrap(text.getBytes)
         out.put(buf)
         memoryMappedFile.close()
-
       }
-
     }
+
     def toInputFile : IBigFile = {
-      val dir : List[String] = outputPath::Nil
-      new BigInputFile(dir)
+      new SingleFile(outputPath)
     }
 }
 
@@ -224,7 +268,7 @@ class BigOutputFile_temp(outputPath: String) extends IOutputFile {
     memoryMappedFile.close()
     println("setRecords end")
   }
-  def write(record: Record ) : Future[Unit] = Future{
+  def appendRecord(record: Record ) : Future[Unit] = Future{
 
     val str = (record._1 + " " + record._2 + "\n")
     val buf = ByteBuffer.wrap(str.getBytes)

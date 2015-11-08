@@ -1,7 +1,7 @@
 package slave
 
 import org.scalatest.FunSuite
-import slave.SlaveSorter._
+import slave.sorter._
 
 /**
  * Created by Clover on 2015-11-06.
