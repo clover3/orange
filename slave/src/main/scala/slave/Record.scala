@@ -28,7 +28,7 @@ package object Record {
 
   //Vector[Record] => ByteBuffer (for sending in network)
   implicit class RecordCompanionOps(val vectorRecord: Vector[Record]) extends AnyVal {
-    def toBuffer : ByteBuffer = {
+    def toMyBuffer : ByteBuffer = {
 
       //record(key,data)=>String(key+data)=> Array[Array[Byte]]
       val recordVector : Array[Array[Byte]] = vectorRecord.map(str => (str._1+str._2).getBytes("UTF-8")).toArray

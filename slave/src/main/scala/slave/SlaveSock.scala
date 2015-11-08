@@ -24,6 +24,7 @@ import common.typedef._
 import scala.concurrent.{Promise, Future}
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
 /**
  * Created by Soyeon on 2015-10-31.
  */
@@ -41,15 +42,15 @@ class ByteConsumer{
   def read(sockIp : String, records : Vector[Record]) : Unit =
   {
     println("read ### records")
-/*
+
     if(ip2inBigfile.contains(sockIp))
-      ip2inBigfile(sockIp).setRecords(records)
+      records map {record => ip2inBigfile(sockIp).write(record)}
     else {
       val outBigfile = new BigOutputFile("outputdir")
       outBigfile.setRecords(records)
       ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
     }
-*/
+
     println(records)
   }
   def get2Map() : Map[String,BigOutputFile] = ip2inBigfile
@@ -69,22 +70,31 @@ trait SlaveSock {
 
   val buf : ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
 
-  def write(sock : Channel) : Unit =
+  def write(sock : Future[Channel], ip : String, file : IBigFile, st:Int, ed: Int) : Unit =
   {
     println("write hi")
-    if(sock.isWritable()) {
+    /*if(sock.isWritable()) {
     sock.writeAndFlush(Unpooled.wrappedBuffer(ByteBuffer.wrap("hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi".getBytes()))).await()
     }
     else throw new Exception("sock isn't writable")
-    /*
-    inBigFile onSuccess {
-    case Bigfile => while(Bigfile.position != Bigfile.send_capacity){
-      BigFile -> buf // split buf size..
-      buf -> sock.write(buf)
-      Bigfile.position = Bigfile.position + size(buf)
-       }
-     }
-     */
+
+*/sock onSuccess {
+    case cur_sock =>
+    var cur = st
+    val end = ed
+
+    while (cur != end) {
+      if (end - cur > 1000) {
+        cur_sock.write(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 1000).toMyBuffer))
+        cur = cur + 1000
+      }
+      else {
+        cur_sock.write(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
+        cur = end
+        cur_sock.flush()
+      }
+    }
+  }
   }
 }
 
@@ -123,13 +133,13 @@ object SlaveSock {
       }
       check
     }
-    def sendData(ip:String, file: Future[BigInputFile], st:Int, ed: Int) = {
+    def sendData(ip:String, file: IBigFile, st:Int, ed: Int) : Future[Unit] = Future {
       println(ip)
       println(ip2Sock)
-      val sock = Await.result (getSock(ip), Duration.Inf)
+      val sock = getSock(ip)
       print("sock in sendData")
       println(sock)
-      write(sock)
+      write(sock, ip, file, st, ed)
       println(serverList)
       println(clientList)
     }
