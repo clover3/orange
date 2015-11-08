@@ -174,7 +174,8 @@ package object SlaveSorter {
       case (inFile, outfileName, st, ed) => {
         val data = Await.result(read_sort(inFile, st, ed), Duration.Inf)
 //        printRecVector(data, 10)
-        val outfile : IOutputFile = new BigOutputFile_temp(tuple._2)
+        //val outfile : IOutputFile = new BigOutputFile_temp(tuple._2)
+        val outfile : IOutputFile = new BigOutputFile(tuple._2)
         Await.result(outfile.setRecords(data), Duration.Inf)
         outfile.toInputFile
       }
