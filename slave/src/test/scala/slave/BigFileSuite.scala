@@ -62,7 +62,7 @@ class BigFileSuite extends FunSuite {
     val output: BigOutputFile = new BigOutputFile(fileName)
 
     val constFile = new ConstFile
-    val numOfRecord = 10 * 10000
+    val numOfRecord = 100 * 10000
     val (records, time) = profile {
       constFile.getRecords(0, numOfRecord)
     }
@@ -71,7 +71,7 @@ class BigFileSuite extends FunSuite {
     val (_, time2) = profile {
       for (rec <- records) output.appendRecord(rec)
     }
-    println("writing using (for+appendRecord) - time elapsed(ms) : " + time)
+    println("writing using (for+appendRecord) - time elapsed(ms) : " + time2)
   }
 
   test("File write - many record - setRecords") {
@@ -80,7 +80,7 @@ class BigFileSuite extends FunSuite {
     val output: BigOutputFile = new BigOutputFile(fileName)
 
     val constFile = new ConstFile
-    val numOfRecord = 10 * 10000
+    val numOfRecord = 100 * 10000
     val (records, time) = profile {
       constFile.getRecords(0, numOfRecord)
     }
