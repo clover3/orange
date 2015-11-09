@@ -69,15 +69,17 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val valueOffset1 :Long = 32
     val valueOffset2 :Long = 52
     //num 2 blank for each blank !?!?
-    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    val totalOffset :Long = 100
 
     //set position
     val pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
 
     //val keyVal = raf.readLine().take(keyOffset.toInt)
-    val keyString = raf.readLine().take(keyOffset.toInt)
-    val dataString = raf.readLine().drop(keyOffset.toInt)
+    val readline =  raf.readLine()
+    val keyString = readline.take(keyOffset.toInt)
+    val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
 
@@ -97,15 +99,17 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val keyOffset :Long = 10
     val valueOffset1 :Long = 32
     val valueOffset2 :Long = 52
-    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    val totalOffset :Long = 100
 
     def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : Vector[Record] ={
       var pos : Long =0
-      val recordVector = for(i <- Range(stRecord,edRecord)) yield {
+      val recordVector = for(i <- Range(stRecord,edRecord+1)) yield {
         pos = (totalOffset) * i
         file.seek(pos)
-        val keyString = file.readLine().take(keyOffset.toInt)
-        val dataString = file.readLine().drop(keyOffset.toInt)
+        val readline = file.readLine()
+        val keyString = readline.take(keyOffset.toInt)
+        val dataString = readline.drop(keyOffset.toInt)
         (keyString, dataString) : Record
       }
       recordVector.toVector
@@ -164,15 +168,16 @@ class SingleFile(name : String) extends IBigFile {
     val valueOffset1 :Long = 32
     val valueOffset2 :Long = 52
     //num 2 blank for each blank !?!?
-    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
-
+    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    val totalOffset :Long= 100
     //set position
     val pos :Long = (totalOffset) * i
     raf.seek(pos)
 
     //val keyVal = raf.readLine().take(keyOffset.toInt)
-    val keyString = raf.readLine().take(keyOffset.toInt)
-    val dataString = raf.readLine().drop(keyOffset.toInt)
+    val readline = raf.readLine()
+    val keyString = readline.take(keyOffset.toInt)
+    val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
 
@@ -193,8 +198,9 @@ class SingleFile(name : String) extends IBigFile {
     val recordVector = for(i <- Range(st,ed)) yield {
       pos = (totalOffset) * i
       raf.seek(pos)
-      val keyString = raf.readLine().take(keyOffset.toInt)
-      val dataString = raf.readLine().drop(keyOffset.toInt)
+      val readline = raf.readLine()
+      val keyString = readline.take(keyOffset.toInt)
+      val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
     }
     recordVector.toVector
