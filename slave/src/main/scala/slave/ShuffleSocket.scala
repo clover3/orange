@@ -74,34 +74,45 @@ package socket {
 
     val buf: ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
 
-    def write(sock: Future[Channel], ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
+    def write(cur_sock: Channel, ip: String, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
       // ed - st <= 1000
       println("write hi")
+      println(ip)
+      println(cur_sock)
+      println(file)
+      println(st)
+      println(ed)
       /*if(sock.isWritable()) {
     sock.writeAndFlush(Unpooled.wrappedBuffer(ByteBuffer.wrap("hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi".getBytes()))).await()
     }
     else throw new Exception("sock isn't writable")
 
-*/ sock onSuccess {
-        case cur_sock =>
+ sock onSuccess {
+        case cur_sock => */
           var cur = st
           val end = ed
 
+          cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
+ }
+    }
+/*
           while (cur != end) {
-            if (end - cur > 1000) {
-              cur_sock.write(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 1000).toMyBuffer))
-              cur = cur + 1000
+            print("cur : "); print(cur)
+            if (end - cur > 10000) {
+              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
+              cur = cur + 10000
+//              println(parseRecordBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
             }
             else {
-              cur_sock.write(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
+              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
               cur = end
-              cur_sock.flush()
             }
           }
-      }
+//      }
+      cur_sock.flush()
     }
   }
-
+*/
 
   object ShuffleSocket {
     var ip2Bigfile: Map[String, BigOutputFile] = Map.empty
@@ -133,6 +144,7 @@ package socket {
       def getSock(ip: String): Future[Channel] = Future {
         var check: Channel = null
         while (check == null) {
+          //print("in getSock")
           ip2Sock.get(ip) match {
             case Some(sock) => check = sock
               println("getSock")
@@ -142,13 +154,13 @@ package socket {
         check
       }
 
-      def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Future[Unit] = Future {
+      def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
         println(ip)
         println(ip2Sock)
-        val sock = getSock(ip)
+        val sock = Await.result(getSock(ip),Duration.Inf)
         print("sock in sendData")
         println(sock)
-        write(sock, ip, file, st, ed)
+        write(sock, ip, file, st, ed).sync()
         println(serverList)
         println(clientList)
       }
@@ -263,6 +275,7 @@ package socket {
     def death() = group.shutdownGracefully()
 
     def run() = {
+      print("clientList : "); println(clientList)
       if (!clientList.isEmpty) {
         try {
           val b: Bootstrap = new Bootstrap()

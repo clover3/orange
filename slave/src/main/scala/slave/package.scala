@@ -39,12 +39,19 @@ package object slave {
 
     def shuffle(partitions:Partitions, sortedFile: IBigFile) : List[IBigFile] = {
       // val forwardData : List[(String, IBigFile, Int, Int)] = ???
-      val forwardData : List[(String, IBigFile, Int, Int)] = List(("127.0.0.1", sortedFile, 0, 10))
-      val ipList = partitions map {_._1}
+      val myIp: String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
+      print("myIp : ") ; println(myIp)
+      val forwardData : List[(String, IBigFile, Int, Int)] = List(("192.168.10.1", sortedFile, 0, 1000000), ("192.168.10.2", sortedFile, 0, 1000000)).filter{_._1 != myIp}
+      val ipList = (partitions.map {_._1})
       val slaveSock = ShuffleSocket(ipList)
+      print("forwardData : ")
+      println(forwardData)
       val resultList = forwardData map (data => slaveSock.sendData(data._1, data._2, data._3, data._4))
-      val files :List[BigOutputFile] = Await.result(all(ipList map (ip => slaveSock.recvData(ip))), Duration.Inf)
-      resultList foreach {Await.result(_, Duration.Inf)}
+      val recvList = ipList.filter{_ != myIp}
+      print("ipList : ")
+      println(recvList)
+      val files :List[BigOutputFile] = Await.result(all(recvList map (ip => slaveSock.recvData(ip))), Duration.Inf)
+      //resultList foreach {Await.result(_, Duration.Inf)}
       slaveSock.death()
       files.map( f => f.toInputFile )
     }
