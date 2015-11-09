@@ -21,6 +21,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 package object sorter {
 
+  val sortedFileName = "sorted"
   // Phase 1 of the sorting process
   trait ChunkSorter {
     def generateSortedChunks(input: IBigFile): List[IBigFile]
@@ -80,7 +81,7 @@ package object sorter {
     def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile =
     {
       def getHead( file:IBigFile ) : Record = file.getRecord(0)
-      val output : BigOutputFile = ???
+      val output : BigOutputFile = new BigOutputFile(sortedFileName)
 
       val nChunks = sortedChunks.size
       val minList :List[Record]= sortedChunks.map(getHead)
@@ -147,12 +148,20 @@ package object sorter {
     //inFile:IBigFile, outfileName:String, st:Int, ed:Int
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
-        val data = Await.result(read_sort(inFile, st, ed), Duration.Inf)
-//        printRecVector(data, 10)
-        //val outfile : IOutputFile = new BigOutputFile_temp(tuple._2)
-        val outfile : IOutputFile = new BigOutputFile(tuple._2)
-        Await.result(outfile.setRecords(data), Duration.Inf)
-        outfile.toInputFile
+        val f = async {
+          println("read_sort_write 1 : read")
+          val dataUnsorted : Vector[Record] = inFile.getRecords(st,ed)
+          println("read_sort_write 2 : sort")
+          val data = sort(dataUnsorted)
+          println("read_sort_write 3 : write")
+          val outfile: IOutputFile = new BigOutputFile(tuple._2)
+          await {
+            outfile.setRecords(data)
+          }
+          println("read_sort_write 4 : return")
+          outfile.toInputFile
+        }
+        Await.result(f, Duration.Inf)
       }
     }
 
@@ -205,7 +214,7 @@ package object sorter {
         }
         val futureSortedChunk : Future[Vector[Record]] = mergeMiniChunk(all(futureChunks))
         val sortedBigChunk : Vector[Record] = Await.result(futureSortedChunk, Duration.Inf)
-        val outfile: IOutputFile = ??? /// new BigOutputFile(outfileName)
+        val outfile: IOutputFile = new BigOutputFile(outfileName)
         outfile.setRecords(sortedBigChunk)
         outfile.toInputFile
       }
@@ -224,8 +233,8 @@ package object sorter {
   class SlaveSorter {
     def run(inputDirs: List[String]): IBigFile = {
       // initializing structs
-      //val input: IBigFile = new MultiFile(inputDirs)
-      val input : IBigFile = new ConstFile
+      val input: IBigFile = new MultiFile(inputDirs)
+      //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
       val merger: ChunkMerger = new SingleThreadMerger
       val sorter: ChunkSorter = new SingleThreadSorter(rs)

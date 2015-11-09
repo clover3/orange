@@ -58,8 +58,8 @@ package object slave {
 
     def run() = {
       val partitions     : Partitions     = getPartition
-      // val sortedFile     : IBigFile       = sort
-      val sortedFile : IBigFile = new ConstFile
+      val sortedFile     : IBigFile       = sort
+      //val sortedFile : IBigFile = new ConstFile
       val netSortedFiles : List[IBigFile] = shuffle (partitions, sortedFile)
     }
   }

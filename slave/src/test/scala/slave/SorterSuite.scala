@@ -9,7 +9,8 @@ import slave.sorter._
 class SorterSuite extends FunSuite {
 
   test("sorting test - virtual file") {
-    val input: IBigFile = new ConstFile
+    //val input: IBigFile = new ConstFile
+    val input: IBigFile = new MultiFile(List("C:\\Work\\Project\\orange\\inputdir1"))
     val rs:ResourceChecker = new ResourceChecker()
     val merger: ChunkMerger = new SingleThreadMerger
     val sorter = new SingleThreadSorter(rs)
