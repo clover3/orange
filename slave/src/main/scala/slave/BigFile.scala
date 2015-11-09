@@ -85,8 +85,61 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-      val seq = for (i <- Range(st, ed)) yield getRecord(i)
-      seq.toVector
+//      val seq = for (i <- Range(st, ed)) yield getRecord(i)
+//      seq.toVector
+    val startNum :Int = 0
+    val endNum : Int = 327680-1
+    val startFileIndex : Int = st/numOfRecords
+    val endFileIndex :Int = ed/numOfRecords
+    val startRecordIndex : Int = st%numOfRecords
+    val endRecordIndex : Int = ed%numOfRecords
+    //val rangeFileIndex : (Int,Int) = (startFileIndex,endFileIndex)
+    val keyOffset :Long = 10
+    val valueOffset1 :Long = 32
+    val valueOffset2 :Long = 52
+    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+
+    def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : Vector[Record] ={
+      var pos : Long =0
+      val recordVector = for(i <- Range(stRecord,edRecord)) yield {
+        pos = (totalOffset) * i
+        file.seek(pos)
+        val keyString = file.readLine().take(keyOffset.toInt)
+        val dataString = file.readLine().drop(keyOffset.toInt)
+        (keyString, dataString) : Record
+      }
+      recordVector.toVector
+
+    }
+
+    //case 1 => startFileIndex == endFileIndex
+    if (startFileIndex == endFileIndex) {
+      val raf = new RandomAccessFile(fileList(startFileIndex), "r")
+      readFile(raf,startRecordIndex,endRecordIndex)
+     }//case 2. startFileIndex+1 == endFileIndex
+    else if (startFileIndex+1 == endFileIndex){
+      val startRaf = new RandomAccessFile(fileList(startFileIndex), "r")
+      val endRaf = new RandomAccessFile(fileList(endFileIndex), "r")
+      readFile(startRaf,startFileIndex,endNum)++readFile(endRaf,startNum,endFileIndex)
+    }// case 3. startFileIndex != endFileIndex
+    else {
+      val startRaf = new RandomAccessFile(fileList(startFileIndex), "r")
+      val endRaf = new RandomAccessFile(fileList(endFileIndex), "r")
+      //start+1 ~ end-1
+      val vectorRaf: Vector[RandomAccessFile] = {
+        //seq of RnadomAccessFIle
+        val seq =  for (i <- Range(startFileIndex + 1, endFileIndex - 1)) yield {
+          new RandomAccessFile(fileList(i), "r")
+        }
+        seq.toVector
+    }
+      val middleFilesEntireRecords :Vector[Record] = vectorRaf.flatMap(file => readFile(file,startNum,endNum))
+      // st~endNum ++ ~ midlle whole file ++ startNum~ed
+      readFile(startRaf,startFileIndex,endNum) ++ middleFilesEntireRecords ++ readFile(endRaf,startNum,endFileIndex)
+
+    }
+
+
   }
 
   //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
@@ -127,8 +180,25 @@ class SingleFile(name : String) extends IBigFile {
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-    val seq = for (i <- Range(st, ed)) yield getRecord(i)
-    seq.toVector
+//    val seq = for (i <- Range(st, ed)) yield getRecord(i)
+//    seq.toVector
+
+    val raf = new RandomAccessFile(name, "r")
+    val keyOffset :Long = 10
+    val valueOffset1 :Long = 32
+    val valueOffset2 :Long = 52
+    //num 2 blank for each blank !?!?
+    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    var pos : Long =0
+    val recordVector = for(i <- Range(st,ed)) yield {
+      pos = (totalOffset) * i
+      raf.seek(pos)
+      val keyString = raf.readLine().take(keyOffset.toInt)
+      val dataString = raf.readLine().drop(keyOffset.toInt)
+      (keyString, dataString) : Record
+    }
+    recordVector.toVector
+
   }
 
   def getIndexofKey(key : String) :  Int = ???
@@ -192,7 +262,7 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
         val existFileList = d.listFiles.filter(_.isFile).toList
 
         //maybe one file...
-        val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
+        //val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
         //maybe  memoryMappedFile.lengrth?
         val filelength = records.size * 112
         val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
@@ -206,7 +276,7 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
       }
 
       else {
-        val memoryMappedFile = new RandomAccessFile("outputFile.txt", "rw")
+        //val memoryMappedFile = new RandomAccessFile("outputFile.txt", "rw")
         val filelength = records.size * 112
         val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
 
@@ -225,8 +295,8 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
     def appendRecord(record: Record ) : Future[Unit] = Future {
       val d = new File(outputPath)
       if (d.exists && d.isDirectory) {
-        val existFileList = d.listFiles.filter(_.isFile).toList
-        val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
+        //val existFileList = d.listFiles.filter(_.isFile).toList
+        //val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
         val filelength = 112
         val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
         val text = (record._1 + " " + record._2 + "\n")
@@ -235,7 +305,7 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
         memoryMappedFile.close()
       }
       else{
-        val memoryMappedFile = new RandomAccessFile("outputFile.txt", "rw")
+        //val memoryMappedFile = new RandomAccessFile("outputFile.txt", "rw")
         val filelength =  112
         val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
         val text = (record._1 + " " + record._2 + "\n")
