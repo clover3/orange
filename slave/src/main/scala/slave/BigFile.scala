@@ -5,7 +5,7 @@ package slave
  */
 
 import java.io.{File, FileNotFoundException, RandomAccessFile}
-import java.nio.{MappedByteBuffer, ByteBuffer}
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
 import slave.Record._
@@ -257,37 +257,40 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
   val randomAccessFile : RandomAccessFile= {
     new RandomAccessFile(new File(outputPath), "rw")
   }
+    var pos = randomAccessFile.length()
 
     def setRecords(records: Vector[Record]): Future[Unit] = Future {
 
       //randomAccessFile.seek(randomAccessFile.length())
 
-      val getBytesOfRecord : Int = 100
-      val filelength = records.size * getBytesOfRecord
-      val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength)
+      //val getBytesOfRecord : Int = 100
+      //val filelength = records.size * getBytesOfRecord
+      //val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength)
         for (i <- Range(0, records.size)) {
-          randomAccessFile.seek(randomAccessFile.length())
+          randomAccessFile.seek(pos)
           val pair = records(i)
           val text = (pair._1 + pair._2 + "\n")
-          val buf = ByteBuffer.wrap(text.getBytes)
-          out.put(buf)
+          //val buf = ByteBuffer.wrap(text.getBytes)
+          randomAccessFile.write(text.getBytes)
+          pos = randomAccessFile.length()
         }
-      randomAccessFile.close()
+      //randomAccessFile.close()
       }
 
 
 
     def appendRecord(record: Record ) : Future[Unit] = Future {
-      randomAccessFile.seek(randomAccessFile.length())
-        //val existFileList = d.listFiles.filter(_.isFile).toList
-        //val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
-        val getBytesOfRecord : Int = 100
-        val filelength = getBytesOfRecord
-        val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
-        val text = (record._1 + record._2 + "\n")
-        val buf = ByteBuffer.wrap(text.getBytes)
-        out.put(buf)
-        randomAccessFile.close()
+      pos = randomAccessFile.length()
+      randomAccessFile.seek(pos)
+      //val existFileList = d.listFiles.filter(_.isFile).toList
+      //val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
+      //val getBytesOfRecord : Int = 100
+      //val filelength = getBytesOfRecord
+      //val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
+      val text = (record._1 + record._2 + "\n")
+      //val buf = ByteBuffer.wrap(text.getBytes)
+      randomAccessFile.write(text.getBytes)
+      //randomAccessFile.close()
     }
 
     def toInputFile : IBigFile = {
