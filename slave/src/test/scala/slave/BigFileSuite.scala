@@ -37,8 +37,7 @@ class BigFileSuite extends FunSuite {
     val cnt = 10 * 10000
     val (result, time) = profile {input.getRecords(0, cnt)}
     println("getRecords - time elapsed(ms) : " + time )
-    val (rCnt,time2) = profile{ result.size }
-    println("vector.size - time elapsed(ms) : " + time2 )
+    val rCnt = result.size
     assert(rCnt == cnt)
     println("Keys : ")
     for(i <- Range(0,10) ) println(result(i)._1)
@@ -65,9 +64,17 @@ class BigFileSuite extends FunSuite {
     val constFile = new ConstFile
     val records = constFile.getRecords(0,10)
     println("record size :" + records.size)
-
+    assert(records(0)._1.length == 10)
+    assert(records(0)._2.length == 90)
     for( rec <- records ) output.appendRecord(rec)
+    output.close()
     val readRecords = output.toInputFile.getRecords(0,10)
+    println(readRecords(0)._1)
+    println(readRecords(0)._2)
+    println(readRecords(1)._1)
+    println(readRecords(1)._2)
+    assert(readRecords(0)._1.length == 10)
+    assert(readRecords(0)._2.length == 90)
     assert(records == readRecords)
   }
 
@@ -121,6 +128,9 @@ class BigFileSuite extends FunSuite {
     val cnt = input.numOfRecords
     val (records, time) = profile {input.getRecords(0, cnt)}
     println("getRecords - time elapsed(ms) : " + time )
+
+    assert(records(0)._1.length == 10)
+    assert(records(0)._2.length == 90)
 
     val rCnt = records.size
     assert(rCnt == cnt)
