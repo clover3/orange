@@ -5,9 +5,8 @@ package slave
  */
 
 import java.io._
-import java.nio.{MappedByteBuffer, ByteBuffer}
-import java.nio.channels.{Channels, FileChannel}
-import java.nio.charset.Charset
+import java.nio.channels.FileChannel
+import java.nio.{ByteBuffer, MappedByteBuffer}
 
 import common.typedef.Partitions
 import slave.Record._
@@ -362,6 +361,24 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     memoryMappedFile.close()
     size = records.size
   }
+//  def setRecords(records: Vector[Record]): Future[Unit] = Future {
+//  var i = 0
+//
+//  while (i < records.size) {
+//    memoryMappedFile.seek(lastPos)
+//
+//    val pair = records(i)
+//    val text = (pair._1 + pair._2 + "\n")
+//    val count = text.length
+//    val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
+//    val fileChannel = memoryMappedFile.getChannel()
+//    val inputChannel = Channels.newChannel(inputstream)
+//    fileChannel.transferFrom(inputChannel, 0, count)
+//    lastPos = memoryMappedFile.length().toInt
+//    //memoryMappedFile.close()
+//
+//  }
+//}
 
   def appendRecord(record: Record): Unit = {
     cachedRecord += record
