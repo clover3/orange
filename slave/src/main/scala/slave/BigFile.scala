@@ -133,11 +133,12 @@ class SingleFile(name : String) extends IBigFile {
 
   def numOfRecords: Int = recordPerFile
 
+  val raf = new RandomAccessFile(name, "r")
+
   // get i'th record
   def getRecord(i: Int): Record = {
 
     //define randomAccessFile just for read("r)
-    val raf = new RandomAccessFile(name, "r")
 
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
@@ -151,7 +152,7 @@ class SingleFile(name : String) extends IBigFile {
     val buf :Array[Byte] = new Array[Byte](lineSize)
     raf.readFully(buf)
 
-    val readline = new String(buf.take(99))
+    val readline = new String(buf.take(100))
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
@@ -161,8 +162,6 @@ class SingleFile(name : String) extends IBigFile {
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-
-    val raf = new RandomAccessFile(name, "r")
     val keyOffset :Long = 10
     val totalOffset :Long = 100
     val lineSize:Int =100
