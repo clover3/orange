@@ -12,6 +12,7 @@ import java.nio.charset.Charset
 import slave.Record._
 
 import scala.collection.mutable.MutableList
+import scala.collection.parallel.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -84,10 +85,10 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
   }
 
   def getRecords(st: Int, ed: Int): Vector[Record] = {
-    val fileIndexStart : Int = st/recordPerFile
-    val fileIndexEnd :Int = ed/recordPerFile
-    val recordIndexBegin : Int = st%recordPerFile
-    val recordIndexEnd : Int = ed%recordPerFile
+    val fileIndexStart    :Int = st / recordPerFile
+    val fileIndexEnd      :Int = ed / recordPerFile
+    val recordIndexBegin  :Int = st % recordPerFile
+    val recordIndexEnd    :Int = ed % recordPerFile
     val keySize = 10
     val recordSize = 100
     def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : IndexedSeq[Record] = {
@@ -129,14 +130,99 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
 
 }
 
+class RecordCache {
+  val maxEntry = 50
+  type CacheEntry = (Int, Int, Vector[Record])
+  var cacheVector : Vector[CacheEntry] = Vector.empty
+  def touch(loc:Int) = {}
+  def addRecords(records :Vector[Record], loc :Int) = {
+    if( cacheVector.size < maxEntry ) {
+      val entry = (loc, records.size, records)
+      cacheVector = entry +: cacheVector
+    }
+  }
+  def contain(loc :Int)(entry: CacheEntry) = {
+    val begin = entry._1
+    val end = entry._1 + entry._2
+    begin <= loc && loc < end
+  }
+  def endOf(loc:Int)(entry: CacheEntry) = {
+    val end = entry._1 + entry._2
+    loc + 1 == end
+  }
+  def hasRecord(loc :Int) : Boolean = {
+    cacheVector.exists( contain(loc) )
+  }
+
+  def removeCheck(loc:Int): Unit = {
+    cacheVector = cacheVector.filterNot(endOf(loc))
+  }
+
+  def getRecord(loc :Int) : Option[Record] = {
+    val rec :Option[Record] = cacheVector.find( contain(loc) ) match {
+      case None => None
+      case Some(e) => {
+        val vector = e._3
+        val index = loc - e._1
+        Option(vector(index))
+      }
+    }
+    removeCheck(loc)
+    rec
+  }
+
+}
+
 class SingleFile(name : String) extends IBigFile {
 
-  def numOfRecords: Int = recordPerFile
-
   val raf = new RandomAccessFile(name, "r")
+  val cache = new RecordCache
+  lazy val numOfRecords: Int = raf.length().toInt / 100
 
   // get i'th record
   def getRecord(i: Int): Record = {
+    //getRecordDirect(i)
+    getRecordByCached(i)
+  }
+  def getRecordByCached(i:Int): Record = {
+    cache.getRecord(i) match {
+      case None => getRecordFromFileWithCache(i)
+      case Some(r) => r
+    }
+  }
+  def min(a:Int,b:Int) :Int = {
+    if(a > b) b
+    else a
+  }
+
+  def getRecordFromFileWithCache(i:Int) : Record = {
+    //define randomAccessFile just for read("r)
+
+    //set Offset for key or value
+    //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
+    //    10 - 32 - 52
+    val keyOffset :Long = 10
+    val totalOffset :Long= 100
+    val lineSize : Int = 100
+    //set position
+    val pos = lineSize * i
+    raf.seek(pos.toLong)
+    val nRecord = min(400, numOfRecords-i)
+    val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
+    raf.readFully(buf)
+
+    val seq = for( i <- Range(0, nRecord) ) yield {
+      val readline = new String(buf.take(100))
+      val keyString = readline.take(keyOffset.toInt)
+      val dataString = readline.drop(keyOffset.toInt)
+      (keyString, dataString)
+    }
+    cache.addRecords(seq.toVector, i)
+    cache.touch(i)
+    seq.head
+  }
+
+  def getRecordDirect(i: Int): Record = {
 
     //define randomAccessFile just for read("r)
 
@@ -157,7 +243,6 @@ class SingleFile(name : String) extends IBigFile {
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
-
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
@@ -171,13 +256,12 @@ class SingleFile(name : String) extends IBigFile {
     val buf :Array[Byte] = new Array[Byte](lineSize)
     val recordVector = for(i <- Range(st,ed)) yield {
       raf.readFully(buf)
-      val readline = new String(buf.take(99))
+      val readline = new String(buf.take(100))
       val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
       }
       recordVector.toVector
-
   }
 
   def getIndexofKey(key : String) :  Int = ???
