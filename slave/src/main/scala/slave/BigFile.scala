@@ -103,6 +103,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
       file.seek(pos)
       val buf :Array[Byte] = new Array[Byte](lineSize )
       val recordVector = for(i <- Range(stRecord,edRecord)) yield {
+        val buf :Array[Byte] = new Array[Byte](lineSize)
         file.readFully(buf)
         val readline = new String(buf)
         val keyString = readline.take(keyOffset.toInt)
@@ -225,8 +226,9 @@ class ConstFile extends IBigFile{
 
 trait IOutputFile {
   def setRecords(records : Vector[Record]) : Future[Unit]
-  def appendRecord(record: Record ) : Future[Unit]
+  def appendRecord(record: Record ) : Unit
   def toInputFile : IBigFile
+  def close()
 }
 
 class NullOutputFile extends IOutputFile {
@@ -235,13 +237,55 @@ class NullOutputFile extends IOutputFile {
   def write(record: Record ) : Future[Unit] = Future {
 
   }
-  def appendRecord(record: Record ) : Future[Unit] = ???
+  def appendRecord(record: Record ) : Unit = ???
   def toInputFile : IBigFile = new ConstFile
-
+  def close = ()
 }
 
+class AppendOutputFile(outputPath: String) {
+  val dummyRec = ("", "")
+  val cacheSize = 1000
+  val cachedRecord: mutable.MutableList[Record] = mutable.MutableList.empty
+  var vect : Vector[Record] = Vector.empty
+  var index:Int = 0
+  val ostream: FileOutputStream = {
+    new FileOutputStream(new File(outputPath))
+  }
+
+  def setRecords(records: Vector[Record]): Future[Unit] = ???
+
+  def flush() = {
+    //for (i <- Range(0, cachedRecord.size)) {
+    var i = 0
+    while( i < vect.size ){
+      val pair = vect(i)
+      val text = (pair._1 + pair._2 + "\n")
+      val buf = text.toCharArray().map(x => x.toByte)
+      //val buf = ByteBuffer.wrap(text.getBytes)
+      ostream.write(buf)
+      i = i + 1
+    }
+    //cachedRecord.clear()
+    vect = Vector.empty
+  }
+
+  def appendRecord(record: Record): Unit = {
+    //cachedRecord += record
+    vect = vect :+ record
+    //if( cachedRecord.size >= 100 )
+    if( vect.size >= 1000)
+      flush()
+
+  }
+  def close() : Unit = {
+    flush()
+  }
+  def toInputFile : IBigFile = {
+    new SingleFile(outputPath)
+  }
+}
   // Delete abstract keyword after implementing BigFile
-class BigOutputFile(outputPath: String) extends IOutputFile {
+class BigOutputFile_old(outputPath: String) extends IOutputFile {
 //that has two case -> file is exist or non-exist.
   val randomAccessFile : RandomAccessFile= {
     new RandomAccessFile(new File(outputPath), "rw")
@@ -249,6 +293,8 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
     var pos = randomAccessFile.length()
 
     def setRecords(records: Vector[Record]): Future[Unit] = Future {
+        SetRecordsUsingWrite(records)
+      }
 
       var i = 0
       while(i<records.size){
@@ -266,6 +312,7 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
 
 
       }
+    }
 
       }
 
@@ -290,31 +337,57 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
     def toInputFile : IBigFile = {
       new SingleFile(outputPath)
     }
+
+    def close() = ()
 }
 
-class BigOutputFile_temp(outputPath: String) extends IOutputFile {
+class BigOutputFile(outputPath: String) extends  IOutputFile {
+  val cacheSize = 10000
+  val cachedRecord: mutable.MutableList[Record] = mutable.MutableList.empty
+  val memoryMappedFile = new RandomAccessFile(outputPath, "rw");
+  var lastPos = 0
+
   def setRecords(records: Vector[Record]): Future[Unit] = Future{
-    println("setRecords : size="+ records.size)
-    val memoryMappedFile = new RandomAccessFile("largeFile2.txt", "rw");
-    //Mapping a file into memory
-    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, records.size * 112);
-    println("setRecords 1")
-    //Writing into Memory Mapped File
+    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, records.size * 100);
+    writeToBuf(out, records)
+    memoryMappedFile.close()
+  }
+
+  def appendRecord(record: Record): Unit = {
+    cachedRecord += record
+    if( cachedRecord.size >= cacheSize )
+      flush()
+  }
+
+  def close() : Unit = {
+    flush()
+  }
+
+  def toInputFile : IBigFile = {
+    new SingleFile(outputPath)
+  }
+
+  def flush() = {
+    appendRecords(cachedRecord.toVector)
+    cachedRecord.clear()
+  }
+
+  def writeToBuf(out : MappedByteBuffer, records:Vector[Record]) = {
     for(i <- Range(0,records.size) )
     {
       val pair = records(i)
-      val str = (pair._1 + " " + pair._2 + "\n")
+      val str = (pair._1 + pair._2 )
       val buf = ByteBuffer.wrap(str.getBytes)
       out.put(buf)
     }
-    memoryMappedFile.close()
-    println("setRecords end")
   }
-  def appendRecord(record: Record ) : Future[Unit] = Future{
 
-    val str = (record._1 + " " + record._2 + "\n")
-    val buf = ByteBuffer.wrap(str.getBytes)
+  def appendRecords(records :Vector[Record]) : Unit = {
+    val filesize = memoryMappedFile.length()
+    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, lastPos + records.size * 100);
+    out.position(lastPos)
+    writeToBuf(out, records)
+    lastPos = out.position()
   }
-  def toInputFile : IBigFile = new ConstFile
 
 }
