@@ -82,7 +82,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
-  
+
   def getRecords(st: Int, ed: Int): Vector[Record] = {
     val fileIndexStart : Int = st/recordPerFile
     val fileIndexEnd :Int = ed/recordPerFile
@@ -104,7 +104,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
       seq
     }
 
-    def getRange(fileIndex :Int) : (Int,Int) = {
+    def getRange(fileIndex :Int) : (Int, Int,Int) = {
       if( fileIndex < fileIndexStart || fileIndex > fileIndexEnd )
         throw new IndexOutOfBoundsException()
       val st = {
@@ -115,14 +115,13 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
         if (fileIndex == fileIndexEnd ) recordIndexEnd
         else recordPerFile
       }
-      (st,ed)
+      (fileIndex, st,ed)
     }
 
-    val seq: IndexedSeq[IndexedSeq[Record]] = for( i <- Range(fileIndexStart, fileIndexEnd) ) yield {
-      val r = getRange(i)
-      readFile(new RandomAccessFile(fileList(i), "r"), r._1, r._2)
-    }
-    seq.flatten.toVector
+    val coverage: Seq[(Int,Int,Int)] = Range(fileIndexStart, fileIndexEnd+1).map( i => getRange(i)).filter( t => t._2 < t._3)
+    coverage.flatMap( t => {
+      readFile(new RandomAccessFile(fileList(t._1), "r"), t._2, t._3)
+    }).toVector
   }
 
   //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
@@ -132,7 +131,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
 
 class SingleFile(name : String) extends IBigFile {
 
-  def numOfRecords: Int = ???
+  def numOfRecords: Int = recordPerFile
 
   // get i'th record
   def getRecord(i: Int): Record = {
@@ -193,7 +192,7 @@ class ConstFile extends IBigFile{
   def getRecord(i: Int): Record = {
     val keyVal = 1000* 10000 - i
     val keyString = "%010d".format(keyVal)
-    val dataString = "7" * 89
+    val dataString = "7" * 90
     (keyString, dataString)
   }
   // return collection of records
@@ -304,6 +303,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     {
       val pair = records(i)
       val str = (pair._1 + pair._2 )
+      val dbg = str.getBytes
       val buf = ByteBuffer.wrap(str.getBytes)
       out.put(buf)
     }
