@@ -4,15 +4,17 @@ package slave
  * Created by Clover on 2015-10-30.
  */
 
-import java.io.{ByteArrayInputStream, File, FileNotFoundException, RandomAccessFile}
-import java.nio.ByteBuffer
+import java.io._
+import java.nio.{MappedByteBuffer, ByteBuffer}
 import java.nio.channels.{Channels, FileChannel}
 import java.nio.charset.Charset
 
 import slave.Record._
 
+import scala.collection.mutable.MutableList
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+
 
 
 trait IBigFile {
@@ -245,7 +247,7 @@ class NullOutputFile extends IOutputFile {
 class AppendOutputFile(outputPath: String) {
   val dummyRec = ("", "")
   val cacheSize = 1000
-  val cachedRecord: mutable.MutableList[Record] = mutable.MutableList.empty
+  val cachedRecord: MutableList[Record] = MutableList.empty
   var vect : Vector[Record] = Vector.empty
   var index:Int = 0
   val ostream: FileOutputStream = {
@@ -284,66 +286,10 @@ class AppendOutputFile(outputPath: String) {
     new SingleFile(outputPath)
   }
 }
-  // Delete abstract keyword after implementing BigFile
-class BigOutputFile_old(outputPath: String) extends IOutputFile {
-//that has two case -> file is exist or non-exist.
-  val randomAccessFile : RandomAccessFile= {
-    new RandomAccessFile(new File(outputPath), "rw")
-  }
-    var pos = randomAccessFile.length()
-
-    def setRecords(records: Vector[Record]): Future[Unit] = Future {
-        SetRecordsUsingWrite(records)
-      }
-
-      var i = 0
-      while(i<records.size){
-        randomAccessFile.seek(pos)
-        val pair = records(i)
-        val text = (pair._1 + pair._2 + "\n")
-        val count = text.length
-        val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
-        val fileChannel = randomAccessFile.getChannel()
-        val inputChannel = Channels.newChannel(inputstream)
-
-        fileChannel.transferFrom(inputChannel,0,count)
-        //randomAccessFile.write(text.getBytes)
-        pos = randomAccessFile.length()
-
-
-      }
-    }
-
-      }
-
-
-
-    def appendRecord(record: Record ) : Future[Unit] = Future {
-
-      randomAccessFile.seek(pos)
-      val lineSize = 100
-      val text :String = (record._1 + record._2 + "\n")
-      val count = text.length
-      val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
-      val fileChannel = randomAccessFile.getChannel()
-      val inputChannel = Channels.newChannel(inputstream)
-
-      fileChannel.transferFrom(inputChannel,pos,count)
-      //randomAccessFile.write(text.getBytes)
-
-      pos = randomAccessFile.length()
-    }
-
-    def toInputFile : IBigFile = {
-      new SingleFile(outputPath)
-    }
-
-    def close() = ()
-}
 
 class BigOutputFile(outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
-  val cachedRecord: mutable.MutableList[Record] = mutable.MutableList.empty
+  val cachedRecord: MutableList[Record] = MutableList.empty
   val memoryMappedFile = new RandomAccessFile(outputPath, "rw");
   var lastPos = 0
 
