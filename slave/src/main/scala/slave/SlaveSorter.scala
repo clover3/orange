@@ -87,9 +87,9 @@ package object sorter {
       val minList :List[Record]= sortedChunks.map(getHead)
       val idxSeq :Seq[Int] = for( i <- Range(0, nChunks) ) yield 0
 
-      val arrChunks: ArrayBuffer[IBigFile] = ArrayBuffer.empty
-      val minArr: ArrayBuffer[Record] = ArrayBuffer.empty
-      val idxArr: ArrayBuffer[Int] = ArrayBuffer.empty
+      val arrChunks: ArrayBuffer[IBigFile] = ArrayBuffer.empty  //
+      val minArr   : ArrayBuffer[Record]   = ArrayBuffer.empty
+      val idxArr   : ArrayBuffer[Int]      = ArrayBuffer.empty
 
       arrChunks++= sortedChunks
       minArr++= minList
@@ -98,17 +98,19 @@ package object sorter {
       @tailrec
       def mergeIteration : Unit = {
         val minRec = minArr.minBy( rec => rec.key )
-        val idxMin = idxArr.indexOf(minRec)
-        idxArr(idxMin) = idxArr(idxMin) + 1
-        if( arrChunks(idxMin).numOfRecords <= idxSeq(idxMin) )
-        {
-          minArr.remove(idxMin)
-          idxArr.remove(idxMin)
-          arrChunks.remove(idxMin)
-        }
-
-        minArr(idxMin) = arrChunks(idxMin).getRecord( idxArr(idxMin) )
         output.appendRecord(minRec)
+
+        val idxMinChunk = minArr.indexOf(minRec)                        // idxMin represents the selected chunk
+        minArr(idxMinChunk) = arrChunks(idxMinChunk).getRecord( idxArr(idxMinChunk) )
+
+        idxArr(idxMinChunk) = idxArr(idxMinChunk) + 1
+
+        if( arrChunks(idxMinChunk).numOfRecords <= idxArr(idxMinChunk) )      //
+        {
+          minArr.remove(idxMinChunk)
+          idxArr.remove(idxMinChunk)
+          arrChunks.remove(idxMinChunk)
+        }
 
         if( minArr.isEmpty )
           return
@@ -116,13 +118,14 @@ package object sorter {
           mergeIteration
       }
       mergeIteration
+      output.close()
       output.toInputFile
     }
   }
 
 
   def getBlockSize(memSize :Int) : Int = {
-    1000 * 10000
+    1 * 10000
         //memSize / 100 / 2
   }
   // continueWith
@@ -141,6 +144,7 @@ package object sorter {
         val st = i * blockSize
         val ed = min((i+1) * blockSize, nTotal)
         val outfileName = outPrefix+i
+        println(outfileName)
         (inFile, outfileName, st, ed)
       }
     }
@@ -149,16 +153,12 @@ package object sorter {
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
         val f = async {
-          println("read_sort_write 1 : read")
           val dataUnsorted : Vector[Record] = inFile.getRecords(st,ed)
-          println("read_sort_write 2 : sort")
           val data = sort(dataUnsorted)
-          println("read_sort_write 3 : write")
           val outfile: IOutputFile = new BigOutputFile(tuple._2)
           await {
             outfile.setRecords(data)
           }
-          println("read_sort_write 4 : return")
           outfile.toInputFile
         }
         Await.result(f, Duration.Inf)
