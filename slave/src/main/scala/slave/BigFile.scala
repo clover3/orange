@@ -18,6 +18,7 @@ import scala.concurrent.Future
 
 
 trait IBigFile {
+    val recordPerFile = 327680
     // returns total number of records in this file
     def numOfRecords: Int
 
@@ -45,20 +46,19 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
       d.listFiles.filter(_.isFile).toList
     else
       throw new FileNotFoundException
-  }
+   }
 
-  val fileList = inputDirs.flatMap(getFileList)
+  val fileList : List[File] = inputDirs.flatMap(getFileList)
 
   //for access to wanted index
   val totalFileNum :Int = fileList.length
   ////////////////////////////////////////////////
 
   // returns total number of records in this file
-  def numOfRecords: Int = 327680
+  def numOfRecords: Int = recordPerFile * totalFileNum
 
   // get i'th record
   def getRecord(i: Int): Record = {
-
     val fileIndex :Int = i/numOfRecords
     val recordIndex : Int = i%numOfRecords
 
@@ -82,66 +82,47 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
-
-  // return collection of records
-  // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] =
-  {
-//      val seq = for (i <- Range(st, ed)) yield getRecord(i)
-//      seq.toVector
-    val startNum :Int = 0
-    val endNum : Int = 327680-1
-    val startFileIndex : Int = st/numOfRecords
-    val endFileIndex :Int = ed/numOfRecords
-    val startRecordIndex : Int = st%numOfRecords
-    val endRecordIndex : Int = ed%numOfRecords
-    val keyOffset :Long = 10
-    val totalOffset :Long = 100
-    val lineSize = 100
-    def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : Vector[Record] ={
-      var pos : Long =0
-
-      pos = (totalOffset) * stRecord
+  
+  def getRecords(st: Int, ed: Int): Vector[Record] = {
+    val fileIndexStart : Int = st/recordPerFile
+    val fileIndexEnd :Int = ed/recordPerFile
+    val recordIndexBegin : Int = st%recordPerFile
+    val recordIndexEnd : Int = ed%recordPerFile
+    val keySize = 10
+    val recordSize = 100
+    def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : IndexedSeq[Record] = {
+      val pos = stRecord * recordSize
       file.seek(pos)
-      val buf :Array[Byte] = new Array[Byte](lineSize )
-      val recordVector = for(i <- Range(stRecord,edRecord)) yield {
-        val buf :Array[Byte] = new Array[Byte](lineSize)
+      val buf: Array[Byte] = new Array[Byte](recordSize)
+      val seq = for (i <- Range(stRecord, edRecord)) yield {
         file.readFully(buf)
         val readline = new String(buf)
-        val keyString = readline.take(keyOffset.toInt)
-        val dataString = readline.drop(keyOffset.toInt)
-        (keyString, dataString) : Record
+        val keyString = readline.take(keySize)
+        val dataString = readline.drop(keySize)
+        (keyString, dataString): Record
       }
-      recordVector.toVector
+      seq
     }
 
-    //case 1 => startFileIndex == endFileIndex
-    if (startFileIndex == endFileIndex) {
-      val raf = new RandomAccessFile(fileList(startFileIndex), "r")
-      readFile(raf,startRecordIndex,endRecordIndex)
-     }//case 2. startFileIndex+1 == endFileIndex
-    else if (startFileIndex+1 == endFileIndex){
-      val startRaf = new RandomAccessFile(fileList(startFileIndex), "r")
-      val endRaf = new RandomAccessFile(fileList(endFileIndex), "r")
-      readFile(startRaf,startFileIndex,endNum)++readFile(endRaf,startNum,endFileIndex)
-    }// case 3. startFileIndex != endFileIndex
-    else {
-      val startRaf = new RandomAccessFile(fileList(startFileIndex), "r")
-      val endRaf = new RandomAccessFile(fileList(endFileIndex), "r")
-      //start+1 ~ end-1
-      val vectorRaf: Vector[RandomAccessFile] = {
-        //seq of RnadomAccessFIle
-        val seq =  for (i <- Range(startFileIndex + 1, endFileIndex - 1)) yield {
-          new RandomAccessFile(fileList(i), "r")
-        }
-        seq.toVector
-    }
-      val middleFilesEntireRecords :Vector[Record] = vectorRaf.flatMap(file => readFile(file,startNum,endNum))
-      // st~endNum ++ ~ midlle whole file ++ startNum~ed
-      readFile(startRaf,startFileIndex,endNum) ++ middleFilesEntireRecords ++ readFile(endRaf,startNum,endFileIndex)
+    def getRange(fileIndex :Int) : (Int,Int) = {
+      if( fileIndex < fileIndexStart || fileIndex > fileIndexEnd )
+        throw new IndexOutOfBoundsException()
+      val st = {
+        if (fileIndex == fileIndexStart) recordIndexBegin
+        else 0
+      }
+      val ed = {
+        if (fileIndex == fileIndexEnd ) recordIndexEnd
+        else recordPerFile
+      }
+      (st,ed)
     }
 
-
+    val seq: IndexedSeq[IndexedSeq[Record]] = for( i <- Range(fileIndexStart, fileIndexEnd) ) yield {
+      val r = getRange(i)
+      readFile(new RandomAccessFile(fileList(i), "r"), r._1, r._2)
+    }
+    seq.flatten.toVector
   }
 
   //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
