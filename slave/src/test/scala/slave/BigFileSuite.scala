@@ -4,6 +4,8 @@ import java.io.File
 
 import org.scalatest.FunSuite
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 
 // usage:
@@ -42,6 +44,19 @@ class BigFileSuite extends FunSuite {
     for(i <- Range(0,10) ) println(result(i)._1)
   }
 
+  test("check file read (ConstFile)"){
+    val input: IBigFile = new ConstFile
+
+    val cnt = 100 * 10000
+    val (result, time) = profile {input.getRecords(0, cnt)}
+    println("getRecords - time elapsed(ms) : " + time )
+    val (rCnt,time2) = profile{ result.size }
+    println("vector.size - time elapsed(ms) : " + time2 )
+    assert(rCnt == cnt)
+    println("Keys : ")
+    for(i <- Range(0,10) ) println(result(i)._1)
+  }
+
   test("File write - few record using appendRecord"){
     val fileName = "out_test"
     deleteIfExist(fileName)
@@ -59,7 +74,7 @@ class BigFileSuite extends FunSuite {
   test("File write - many record - appendRecord") {
     val fileName = "out_test1"
     deleteIfExist(fileName)
-    val output: BigOutputFile = new BigOutputFile(fileName)
+    val output: IOutputFile = new BigOutputFile(fileName)
 
     val constFile = new ConstFile
     val numOfRecord = 100 * 10000
@@ -69,7 +84,14 @@ class BigFileSuite extends FunSuite {
     println("record generation - time elapsed(ms) : " + time)
 
     val (_, time2) = profile {
-      for (rec <- records) output.appendRecord(rec)
+      var i = 0
+      while( i < records.size ){
+      //for (rec <- records) {
+        val rec = records(i)
+        output.appendRecord(rec)
+        i = i + 1
+      }
+      output.close()
     }
     println("writing using (for+appendRecord) - time elapsed(ms) : " + time2)
   }
@@ -77,7 +99,7 @@ class BigFileSuite extends FunSuite {
   test("File write - many record - setRecords") {
     val fileName = "out_test1"
     deleteIfExist(fileName)
-    val output: BigOutputFile = new BigOutputFile(fileName)
+    val output: IOutputFile = new BigOutputFile(fileName)
 
     val constFile = new ConstFile
     val numOfRecord = 100 * 10000
@@ -86,7 +108,36 @@ class BigFileSuite extends FunSuite {
     }
     println("record generation - time elapsed(ms) : " + time)
 
-    val (_, time2) = profile { output.setRecords(records) }
+    val (_, time2) = profile {
+      Await.result(output.setRecords(records), Duration.Inf)
+    }
     println("writing using (setRecords) - time elapsed(ms) : " + time2)
+  }
+
+  test("read-write test"){
+    val input: IBigFile = new MultiFile(List("inputdir1", "inputdir2"))
+    val outpath = "out_test1"
+
+    val cnt = input.numOfRecords
+    val (records, time) = profile {input.getRecords(0, cnt)}
+    println("getRecords - time elapsed(ms) : " + time )
+
+    val rCnt = records.size
+    assert(rCnt == cnt)
+    println("Keys : ")
+    for(i <- Range(0,10) ) println(records(i)._1)
+
+    val output: IOutputFile = new BigOutputFile(outpath)
+    val (_, time2) = profile {
+      var i = 0
+      while( i < records.size ){
+        //for (rec <- records) {
+        val rec = records(i)
+        output.appendRecord(rec)
+        i = i + 1
+      }
+      output.close()
+    }
+    println("appendRecord - time elapsed(ms) : " + time2)
   }
 }
