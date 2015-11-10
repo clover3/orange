@@ -10,6 +10,7 @@ import java.nio.channels.FileChannel
 
 import slave.Record._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -97,17 +98,17 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val endRecordIndex : Int = ed%numOfRecords
     //val rangeFileIndex : (Int,Int) = (startFileIndex,endFileIndex)
     val keyOffset :Long = 10
-    val valueOffset1 :Long = 32
-    val valueOffset2 :Long = 52
     //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
     val totalOffset :Long = 100
-
+    val lineSize = 100
     def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : Vector[Record] ={
       var pos : Long =0
-      val recordVector = for(i <- Range(stRecord,edRecord+1)) yield {
-        pos = (totalOffset) * i
-        file.seek(pos)
-        val readline = file.readLine()
+      pos = (totalOffset) * stRecord
+      file.seek(pos)
+      val recordVector = for(i <- Range(stRecord,edRecord)) yield {
+        val buf :Array[Byte] = new Array[Byte](lineSize * 2)
+        file.readFully(buf)
+        val readline = new String(buf)
         val keyString = readline.take(keyOffset.toInt)
         val dataString = readline.drop(keyOffset.toInt)
         (keyString, dataString) : Record
@@ -140,7 +141,6 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
       val middleFilesEntireRecords :Vector[Record] = vectorRaf.flatMap(file => readFile(file,startNum,endNum))
       // st~endNum ++ ~ midlle whole file ++ startNum~ed
       readFile(startRaf,startFileIndex,endNum) ++ middleFilesEntireRecords ++ readFile(endRaf,startNum,endFileIndex)
-
     }
 
 
@@ -225,11 +225,9 @@ class ConstFile extends IBigFile{
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-    val seq = for (i <- Range(st, ed)) yield getRecord(i)
-    seq.toVector
+    val lst = Range(st, ed).map( x => getRecord(x))
+    lst.toVector
   }
-
-
   def getIndexofKey(key : String) :  Int = ???
 
 }
