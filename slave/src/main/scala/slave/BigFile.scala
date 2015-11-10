@@ -4,9 +4,10 @@ package slave
  * Created by Clover on 2015-10-30.
  */
 
-import java.io.{File, FileNotFoundException, RandomAccessFile}
+import java.io.{ByteArrayInputStream, File, FileNotFoundException, RandomAccessFile}
 import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
+import java.nio.channels.{Channels, FileChannel}
+import java.nio.charset.Charset
 
 import slave.Record._
 
@@ -67,12 +68,14 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     //    10 - 32 - 52
     val keyOffset :Long = 10
     val totalOffset :Long = 100
+    val lineSize : Int = 100
+    val buf :Array[Byte] = new Array[Byte](lineSize )
 
     //set position
     val pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
-
-    val readline =  raf.readLine()
+    raf.readFully(buf)
+    val readline = new String(buf)
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
@@ -158,11 +161,14 @@ class SingleFile(name : String) extends IBigFile {
     //    10 - 32 - 52
     val keyOffset :Long = 10
     val totalOffset :Long= 100
+    val lineSize : Int = 100
     //set position
     val pos :Long = (totalOffset) * i
     raf.seek(pos)
+    val buf :Array[Byte] = new Array[Byte](lineSize)
+    raf.readFully(buf)
 
-    val readline = raf.readLine()
+    val readline = new String(buf.take(99))
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
@@ -187,7 +193,6 @@ class SingleFile(name : String) extends IBigFile {
       val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
-//(keyString, dataString)+:Vector()
       }
       recordVector.toVector
 
@@ -245,38 +250,41 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
 
     def setRecords(records: Vector[Record]): Future[Unit] = Future {
 
-      //randomAccessFile.seek(randomAccessFile.length())
+      var i = 0
+      while(i<records.size){
+        randomAccessFile.seek(pos)
+        val pair = records(i)
+        val text = (pair._1 + pair._2 + "\n")
+        val count = text.length
+        val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
+        val fileChannel = randomAccessFile.getChannel()
+        val inputChannel = Channels.newChannel(inputstream)
 
-      //val getBytesOfRecord : Int = 100
-      //val filelength = records.size * getBytesOfRecord
-      //val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength)
-        for (i <- Range(0, records.size)) {
-          randomAccessFile.seek(pos)
-          val pair = records(i)
-          val text = (pair._1 + pair._2 + "\n")
-          //val buf = ByteBuffer.wrap(text.getBytes)
-          randomAccessFile.write(text.getBytes)
-          pos = randomAccessFile.length()
+        fileChannel.transferFrom(inputChannel,0,count)
+        //randomAccessFile.write(text.getBytes)
+        pos = randomAccessFile.length()
 
-        }
-      //randomAccessFile.close()
+
+      }
+
       }
 
 
 
     def appendRecord(record: Record ) : Future[Unit] = Future {
-      pos = randomAccessFile.length()
+
       randomAccessFile.seek(pos)
-      //val existFileList = d.listFiles.filter(_.isFile).toList
-      //val memoryMappedFile = new RandomAccessFile(existFileList(0), "rw")
-      //val getBytesOfRecord : Int = 100
-      //val filelength = getBytesOfRecord
-      //val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
-       val text = (record._1 + record._2 + "\n")
-      //val buf = ByteBuffer.wrap(text.getBytes)
-      randomAccessFile.write(text.getBytes)
-      //randomAccessFile.close()
-      //pos = randomAccessFile.length()
+      val lineSize = 100
+      val text :String = (record._1 + record._2 + "\n")
+      val count = text.length
+      val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
+      val fileChannel = randomAccessFile.getChannel()
+      val inputChannel = Channels.newChannel(inputstream)
+
+      fileChannel.transferFrom(inputChannel,pos,count)
+      //randomAccessFile.write(text.getBytes)
+
+      pos = randomAccessFile.length()
     }
 
     def toInputFile : IBigFile = {
