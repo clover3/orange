@@ -3,7 +3,6 @@ package slave
 import java.io.File
 
 import org.scalatest.FunSuite
-import slave.sorter._
 
 
 
@@ -50,6 +49,7 @@ class BigFileSuite extends FunSuite {
 
     val constFile = new ConstFile
     val records = constFile.getRecords(0,10)
+    println("record size :" + records.size)
 
     for( rec <- records ) output.appendRecord(rec)
     val readRecords = output.toInputFile.getRecords(0,10)

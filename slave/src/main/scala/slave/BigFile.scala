@@ -10,7 +10,6 @@ import java.nio.channels.FileChannel
 
 import slave.Record._
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -67,17 +66,12 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
     val keyOffset :Long = 10
-    val valueOffset1 :Long = 32
-    val valueOffset2 :Long = 52
-    //num 2 blank for each blank !?!?
-    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
     val totalOffset :Long = 100
 
     //set position
     val pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
 
-    //val keyVal = raf.readLine().take(keyOffset.toInt)
     val readline =  raf.readLine()
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
@@ -96,17 +90,16 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val endFileIndex :Int = ed/numOfRecords
     val startRecordIndex : Int = st%numOfRecords
     val endRecordIndex : Int = ed%numOfRecords
-    //val rangeFileIndex : (Int,Int) = (startFileIndex,endFileIndex)
     val keyOffset :Long = 10
-    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
     val totalOffset :Long = 100
     val lineSize = 100
     def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : Vector[Record] ={
       var pos : Long =0
+
       pos = (totalOffset) * stRecord
       file.seek(pos)
+      val buf :Array[Byte] = new Array[Byte](lineSize )
       val recordVector = for(i <- Range(stRecord,edRecord)) yield {
-        val buf :Array[Byte] = new Array[Byte](lineSize * 2)
         file.readFully(buf)
         val readline = new String(buf)
         val keyString = readline.take(keyOffset.toInt)
@@ -114,7 +107,6 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
         (keyString, dataString) : Record
       }
       recordVector.toVector
-
     }
 
     //case 1 => startFileIndex == endFileIndex
@@ -165,16 +157,11 @@ class SingleFile(name : String) extends IBigFile {
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
     val keyOffset :Long = 10
-    val valueOffset1 :Long = 32
-    val valueOffset2 :Long = 52
-    //num 2 blank for each blank !?!?
-    //val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
     val totalOffset :Long= 100
     //set position
     val pos :Long = (totalOffset) * i
     raf.seek(pos)
 
-    //val keyVal = raf.readLine().take(keyOffset.toInt)
     val readline = raf.readLine()
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
@@ -185,25 +172,24 @@ class SingleFile(name : String) extends IBigFile {
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
-//    val seq = for (i <- Range(st, ed)) yield getRecord(i)
-//    seq.toVector
 
     val raf = new RandomAccessFile(name, "r")
     val keyOffset :Long = 10
-    val valueOffset1 :Long = 32
-    val valueOffset2 :Long = 52
-    //num 2 blank for each blank !?!?
-    val totalOffset :Long = keyOffset + 2 + valueOffset1 + 2 + valueOffset2
+    val totalOffset :Long = 100
+    val lineSize:Int =100
     var pos : Long =0
+    pos =st*totalOffset
+    raf.seek(pos)
+    val buf :Array[Byte] = new Array[Byte](lineSize)
     val recordVector = for(i <- Range(st,ed)) yield {
-      pos = (totalOffset) * i
-      raf.seek(pos)
-      val readline = raf.readLine()
+      raf.readFully(buf)
+      val readline = new String(buf.take(99))
       val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
-    }
-    recordVector.toVector
+//(keyString, dataString)+:Vector()
+      }
+      recordVector.toVector
 
   }
 
@@ -218,7 +204,7 @@ class ConstFile extends IBigFile{
   def getRecord(i: Int): Record = {
     val keyVal = 1000* 10000 - i
     val keyString = "%010d".format(keyVal)
-    val dataString = "7" * 100
+    val dataString = "7" * 89
     (keyString, dataString)
   }
   // return collection of records
@@ -271,6 +257,7 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
           //val buf = ByteBuffer.wrap(text.getBytes)
           randomAccessFile.write(text.getBytes)
           pos = randomAccessFile.length()
+
         }
       //randomAccessFile.close()
       }
@@ -285,10 +272,11 @@ class BigOutputFile(outputPath: String) extends IOutputFile {
       //val getBytesOfRecord : Int = 100
       //val filelength = getBytesOfRecord
       //val out : MappedByteBuffer = randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, filelength);
-      val text = (record._1 + record._2 + "\n")
+       val text = (record._1 + record._2 + "\n")
       //val buf = ByteBuffer.wrap(text.getBytes)
       randomAccessFile.write(text.getBytes)
       //randomAccessFile.close()
+      //pos = randomAccessFile.length()
     }
 
     def toInputFile : IBigFile = {
