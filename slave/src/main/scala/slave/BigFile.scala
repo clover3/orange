@@ -9,6 +9,7 @@ import java.nio.{MappedByteBuffer, ByteBuffer}
 import java.nio.channels.{Channels, FileChannel}
 import java.nio.charset.Charset
 
+import common.typedef.Partitions
 import slave.Record._
 import slave.util._
 
@@ -30,9 +31,6 @@ trait IBigFile {
     // return collection of records
     // starting from st to ed  ( it should not include ed'th record )
     def getRecords(st: Int, ed: Int): Vector[Record]
-
-    // return index of key in sorted file
-    def getIndexofKey(key : String) :  Int
 
 }
 
@@ -125,9 +123,6 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
       readFile(new RandomAccessFile(fileList(t._1), "r"), t._2, t._3)
     }).toVector
   }
-
-  //It called in sorted file. if(key > sortedkey) return index of sortedkey (assume sorting is ascending)
-  def getIndexofKey(key : String) :  Int = ???
 
 }
 
@@ -267,8 +262,8 @@ class SingleFile(name : String) extends IBigFile {
       recordVector.toVector
   }
 
-  def getIndexofKey(key : String) :  Int = ???
 }
+
 
 class ConstFile extends IBigFile{
   // returns total number of records in this file
@@ -288,8 +283,6 @@ class ConstFile extends IBigFile{
     val lst = Range(st, ed).map( x => getRecord(x))
     lst.toVector
   }
-  def getIndexofKey(key : String) :  Int = ???
-
 }
 
 trait IOutputFile {
@@ -409,4 +402,54 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     lastPos = out.position()
   }
 
+}
+
+class SortedConstFile extends IBigFile{
+  // returns total number of records in this file
+  def numOfRecords: Int = 200
+
+  // get i'th record
+  def getRecord(i: Int): Record = {
+    val keyVal:Int = i * 3
+    val keyString = "%010d".format(keyVal)
+    val dataString = "4" * 90
+    (keyString, dataString)
+  }
+  // return collection of records
+  // starting from st to ed  ( it should not include ed'th record )
+  def getRecords(st: Int, ed: Int): Vector[Record] =
+  {
+    val lst = Range(st, ed).map( x => getRecord(x))
+    lst.toVector
+  }
+}
+
+
+object Splitter {
+  def makePartitionsList(file:IBigFile, partitions : Partitions) : List[(Int,Int)]={
+    val keyList: List[String] = partitions.head._1::partitions.map({p => p._2})
+
+    // returns List[index of key in file that is same or bigger than given key]
+    def getIndexList(keyList : List[String], st:Int, ed:Int) : List[Int] = {
+      if( keyList.isEmpty )
+        Nil
+      else if( st + 1 >= ed){
+        val n = if( ed < file.numOfRecords ) st
+        else ed
+        keyList.map(_ => n)
+      }
+      else {
+        val mid = (st + ed) / 2
+        val midKey = file.getRecord(mid-1)._1
+        val leftKey = keyList.filter(key => key <= midKey)
+        val rightKey = keyList.filter(key => key > midKey)
+        getIndexList(leftKey, st, mid ) ::: getIndexList(rightKey, mid , ed)
+      }
+    }
+
+    val indexList = getIndexList(keyList, 0, file.numOfRecords)
+    val startList = indexList.dropRight(1)
+    val endList = indexList.tail
+    startList.zip(endList)
+  }
 }
