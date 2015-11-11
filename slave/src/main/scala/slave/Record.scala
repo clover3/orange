@@ -34,8 +34,11 @@ package object Record {
       val recordVector : Array[Array[Byte]] = vectorRecord.map(str => (str._1+str._2).getBytes("UTF-8")).toArray
 
       val byteArr: Array[Byte] = recordVector.flatten
-
-      ByteBuffer.wrap(byteArr)
+      val size : Int = vectorRecord.size
+      val buf = ByteBuffer.allocate(4)
+      buf.putInt(size)
+      val byteResult : Array[Byte] = buf.array() ++ byteArr
+      ByteBuffer.wrap(byteResult)
     }
   }
 

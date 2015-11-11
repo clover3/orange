@@ -37,23 +37,23 @@ package socket {
 
   // given IP and bytes, write downs data into IBigFile
   class ByteConsumer {
-    var ip2inBigfile: Map[String, BigOutputFile] = Map.empty
+    var ip2inBigfile: Map[String, (Int,BigOutputFile)] = Map.empty
     var inBigFile: List[(String, Promise[IBigFile])] = Nil
-
+    var size : Int = 0
     def read(sockIp: String, records: Vector[Record]): Unit = {
 
       if (ip2inBigfile.contains(sockIp))
-        records map { record => ip2inBigfile(sockIp).appendRecord(record) }
+        ip2inBigfile(sockIp)._2.appendRecords(records)
       else {
         val outBigfile = new BigOutputFile("runiel_is_cute_>_<")
         outBigfile.setRecords(records)
-        ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
+        ip2inBigfile = ip2inBigfile + (sockIp -> (size, outBigfile))
       }
 
       println("read record size ### " +records.size)
     }
-
-    def get2Map(): Map[String, BigOutputFile] = ip2inBigfile
+    def setSize(s : Int) : Unit = {size = s}
+    def get2Map(): Map[String, (Int,BigOutputFile)] = ip2inBigfile
   }
 
 
@@ -131,7 +131,7 @@ package socket {
       serverThread.start()
       clientThread.start()
 
-      def ip2Bigfile: Map[String, BigOutputFile] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
+      def ip2Bigfile: Map[String, (Int,BigOutputFile)] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
 
       def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
@@ -139,7 +139,7 @@ package socket {
         var check: BigOutputFile = null
         while (check == null) {
           ip2Bigfile.get(ip) match {
-            case Some(bigFile) => check = bigFile
+            case Some((size,bigFile)) => if(bigFile.size == size) check = bigFile
             case None =>
           }
         }
@@ -175,10 +175,19 @@ package socket {
     }
   }
 
-  class Buf2VectorRecordDecode extends ByteToMessageDecoder {
+  class Buf2VectorRecordDecode(byteConsumer: ByteConsumer) extends ByteToMessageDecoder {
+    var check = false
     override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
       println("Buf2VectorRecordDecode enter")
-      if (byteBuf.readableBytes() < 100) {
+      if (byteBuf.readableBytes() < 4) {
+        return
+      }
+      else if (!check){
+        check = true
+        byteConsumer.setSize(ByteBuffer.wrap(byteBuf.readBytes(4).array()).getInt())
+        return
+      }
+      else if (byteBuf.readableBytes() < 100) {
         println(" < 100")
         println(byteBuf)
         println(" < 100")
@@ -240,7 +249,7 @@ package socket {
               ip2Sock = ip2Sock + (c.remoteAddress().toString.toIPList.toIPString -> c)
               LOG.info(ip2Sock)
               val cp: ChannelPipeline = c.pipeline
-              cp.addLast(new Buf2VectorRecordDecode())
+              cp.addLast(new Buf2VectorRecordDecode(byteConsumer))
               cp.addLast(new ServerHandler(c.remoteAddress().toString.toIPList.toIPString, byteConsumer))
             }
           })
@@ -293,7 +302,7 @@ package socket {
             .handler(new ChannelInitializer[SocketChannel] {
             override def initChannel(c: SocketChannel): Unit = {
               val cp: ChannelPipeline = c.pipeline()
-              cp.addLast(new Buf2VectorRecordDecode())
+              cp.addLast(new Buf2VectorRecordDecode(byteConsumer))
               cp.addLast(new myClientHandler(c, byteConsumer))
             }
           })

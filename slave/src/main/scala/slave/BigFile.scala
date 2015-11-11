@@ -361,15 +361,18 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     new RandomAccessFile(outputPath, "rw");
   }
   var lastPos = 0
+  var size = 0
 
   def setRecords(records: Vector[Record]): Future[Unit] = Future{
     val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, records.size * 100);
     writeToBuf(out, records)
     memoryMappedFile.close()
+    size = records.size
   }
 
   def appendRecord(record: Record): Unit = {
     cachedRecord += record
+    size += 1
     if( cachedRecord.size >= cacheSize )
       flush()
   }
@@ -399,11 +402,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
   }
 
   def appendRecords(records :Vector[Record]) : Unit = {
-    val filesize = memoryMappedFile.length()
-    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, lastPos + records.size * 100);
-    out.position(lastPos)
-    writeToBuf(out, records)
-    lastPos = out.position()
+    records map { record => appendRecord(record)}
   }
 
 }
