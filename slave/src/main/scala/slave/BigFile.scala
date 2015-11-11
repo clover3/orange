@@ -83,6 +83,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
   }
 
   def getRecords(st: Int, ed: Int): Vector[Record] = {
+
     val fileIndexStart    :Int = st / recordPerFile
     val fileIndexEnd      :Int = ed / recordPerFile
     val recordIndexBegin  :Int = st % recordPerFile
@@ -170,6 +171,7 @@ class RecordCache {
 
 class SingleFile(name : String) extends IBigFile {
 
+
   val raf = new RandomAccessFile(name, "r")
   val cache = new RecordCache
   lazy val numOfRecords: Int = raf.length().toInt / 100
@@ -192,6 +194,7 @@ class SingleFile(name : String) extends IBigFile {
 
   def getRecordFromFileWithCache(i:Int) : Record = {
     //define randomAccessFile just for read("r)
+
 
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
@@ -235,8 +238,8 @@ class SingleFile(name : String) extends IBigFile {
     val buf :Array[Byte] = new Array[Byte](lineSize)
     raf.readFully(buf)
 
-    val readline = new String(buf.take(100))
-    val keyString = readline.take(keyOffset.toInt)
+    
+    val readline = new String(buf.take(100))    val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
@@ -244,6 +247,7 @@ class SingleFile(name : String) extends IBigFile {
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record] =
   {
+
     val keyOffset :Long = 10
     val totalOffset :Long = 100
     val lineSize:Int =100
@@ -253,8 +257,8 @@ class SingleFile(name : String) extends IBigFile {
     val buf :Array[Byte] = new Array[Byte](lineSize)
     val recordVector = for(i <- Range(st,ed)) yield {
       raf.readFully(buf)
-      val readline = new String(buf.take(100))
-      val keyString = readline.take(keyOffset.toInt)
+
+      val readline = new String(buf.take(100))      val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
       }
@@ -361,24 +365,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     memoryMappedFile.close()
     size = records.size
   }
-//  def setRecords(records: Vector[Record]): Future[Unit] = Future {
-//  var i = 0
-//
-//  while (i < records.size) {
-//    memoryMappedFile.seek(lastPos)
-//
-//    val pair = records(i)
-//    val text = (pair._1 + pair._2 + "\n")
-//    val count = text.length
-//    val inputstream = new ByteArrayInputStream(text.getBytes(Charset.forName("UTF-8")))
-//    val fileChannel = memoryMappedFile.getChannel()
-//    val inputChannel = Channels.newChannel(inputstream)
-//    fileChannel.transferFrom(inputChannel, 0, count)
-//    lastPos = memoryMappedFile.length().toInt
-//    //memoryMappedFile.close()
-//
-//  }
-//}
+
 
   def appendRecord(record: Record): Unit = {
     cachedRecord += record
