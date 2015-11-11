@@ -2,8 +2,10 @@ package slave
 
 import slave.Record._
 import slave.future._
+import slave.util.profile
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.Duration
 import scala.math._
@@ -12,7 +14,7 @@ import scala.concurrent.{Await, Promise, ExecutionContext, Future}
 import scala.util.{Success, Failure}
 import scala.async.Async.{async, await}
 import scala.concurrent.ExecutionContext.Implicits.global
-
+import scala.util.Sorting
 
 
 /**
@@ -53,8 +55,8 @@ package object sorter {
         }._1
       }
       def removeRec(arr: ArrayBuffer[ArrayBuffer[Record]], rec:(Record,Int)) : ArrayBuffer[ArrayBuffer[Record]] = {
-        arr(rec._2)-=rec._1
-        if( arr(rec._2).isEmpty )
+        arr(rec._2) -= rec._1
+        if (arr(rec._2).isEmpty) {
           arr -= arr(rec._2)
         arr
       }
@@ -63,8 +65,10 @@ package object sorter {
       def mergeAcc(sorted:ArrayBuffer[Record], arr: ArrayBuffer[ArrayBuffer[Record]]) : ArrayBuffer[Record] = {
         if( arr.isEmpty )
           sorted
-        val min : (Record,Int) = findMin(arr)
-        mergeAcc( (sorted+= min._1), removeRec(arr, min) )
+        else {
+          val min: (Record, Int) = findMin(arr)
+          mergeAcc((sorted += min._1), removeRec(arr, min))
+        }
       }
       mergeAcc(ArrayBuffer.empty, arr).toVector
     }
@@ -78,7 +82,71 @@ package object sorter {
   // TODO OS might not keep pages of the files, It might be better to read sequence of data
   class SingleThreadMerger extends ChunkMerger {
     //TODO we can optimize by changing idxSeq to mutable
-    def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile =
+    def MergeWithPQ(sortedChunks :List[IBigFile]): IBigFile = {
+      val output : BigOutputFile = new BigOutputFile(sortedFileName)
+
+      class DataBag(sources: Vector[IBigFile] ) {
+        val cursorArray : ArrayBuffer[Int] = ArrayBuffer.empty ++ (for( i <- Range(0, sources.size) ) yield 0)
+        def getItem(index:Int) : Option[Record] = {
+          val cursor = cursorArray(index)
+          if( cursor < sources(index).numOfRecords ) {
+            val rec = sources(index).getRecord(cursor)
+            cursorArray(index) = cursorArray(index)+1
+            Some(rec)
+          }
+          else
+            None
+        }
+        def isEmpty : Boolean = {
+          Range(0,sources.size).forall( i => {
+            sources(i).numOfRecords <= cursorArray(i)
+          })
+        }
+      }
+
+      class MergePQ(sortedChunks :List[IBigFile]) {
+        object EntryOrdering extends Ordering[(Record,Int)] {
+          def compare(a:(Record,Int), b:(Record,Int)) = b._1._1 compare a._1._1
+        }
+
+        val priorityQueue : mutable.PriorityQueue[(Record,Int)] = new mutable.PriorityQueue[(Record,Int)]()(EntryOrdering)
+        val dataBag = new DataBag(sortedChunks.toVector)
+        val contructor = {
+          println("Contructor Executed")
+          for( i <- Range(0, sortedChunks.size) ) {
+            val rec: Option[Record] = dataBag.getItem(i)
+            rec match {
+              case Some(r) => priorityQueue.enqueue((r,i))
+              case None => ()
+            }
+          }
+        }
+        def getMin() : Record = {
+          val (rec,i) = priorityQueue.dequeue()
+          dataBag.getItem(i) match {
+            case Some(r) => (priorityQueue+=((r,i)))
+            case None => ()
+          }
+          rec
+        }
+        def isEmpty : Boolean = priorityQueue.isEmpty
+      }
+
+      val pq : MergePQ = new MergePQ(sortedChunks)
+      while( !pq.isEmpty )
+      {
+        output.appendRecord(pq.getMin())
+      }
+      output.close()
+      output.toInputFile
+    }
+
+    def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
+//      MergeWithPQ(sortedChunks)
+      MergeSimple(sortedChunks)
+    }
+
+    def MergeSimple(sortedChunks: List[IBigFile]): IBigFile =
     {
       def getHead( file:IBigFile ) : Record = file.getRecord(0)
       val output : BigOutputFile = new BigOutputFile(sortedFileName)
@@ -128,8 +196,11 @@ package object sorter {
 
 
   def getBlockSize(memSize :Int) : Int = {
-    100 * 10000
-        //memSize / 100 / 2
+    //50 * 10000
+    println("memSize:" + memSize)
+    //5000
+    100000
+    //memSize / 100 / 2
   }
   // continueWith
 
@@ -147,7 +218,6 @@ package object sorter {
         val st = i * blockSize
         val ed = min((i+1) * blockSize, nTotal)
         val outfileName = outPrefix+i
-        println(outfileName)
         (inFile, outfileName, st, ed)
       }
     }
@@ -155,23 +225,23 @@ package object sorter {
     //inFile:IBigFile, outfileName:String, st:Int, ed:Int
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
+        def read = inFile.getRecords(st,ed)
+        def write(data: Vector[Record]) = {
+          val out = new BigOutputFile(tuple._2)
+          Await.result(out.setRecords(data), Duration.Inf)
+          out
+        }
         val f = async {
-          val dataUnsorted : Vector[Record] = inFile.getRecords(st,ed)
-          val data = sort(dataUnsorted)
-          val outfile: IOutputFile = new BigOutputFile(tuple._2)
-          await {
-            outfile.setRecords(data)
-          }
-          outfile.toInputFile
+          val (dataUnsorted,t1)   = profile{ read }
+          val (data,t2)           = profile{ sort(dataUnsorted) }
+          val (out,t3)            = profile{ write(data) }
+          println("Sort %s read/sort/write=(%d/%d/%d)".format(outfileName, t1,t2,t3))
+          out.toInputFile
         }
         Await.result(f, Duration.Inf)
       }
     }
 
-    def read_sort(file: IBigFile, st: Int, ed: Int): Future[Vector[Record]] = async{
-      val data : Vector[Record] = file.getRecords(st,ed) 
-      sort(data)
-    }
 
     def generateSortedChunks(input: IBigFile): List[IBigFile] = {
       val mem = rs.remainingMemory
@@ -182,10 +252,25 @@ package object sorter {
     }
   }
 
+  class MultiThreadSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
+
+    override
+    def generateSortedChunks(input: IBigFile): List[IBigFile] = {
+      val mem = rs.remainingMemory
+      val blockSize = getBlockSize(mem / 4)
+      println("mem :"+mem + " blockSize:"+ blockSize)
+      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
+      val lstFutureFile : List[Future[IBigFile]]= {
+        inputSeq.map( t => Future{read_sort_write(t)}).toList
+      }
+      Await.result(all(lstFutureFile), Duration.Inf)
+    }
+  }
+
   // sortChunk( IBigFile, String, Int, Int) => IBigFile
   // -> sortMiniChunk : (IBigFile, Int, Int) => Future[Vector[Record]]
   // -> mergeMiniChunk : (Future[List[Vector[Record]]]) => Vector[Record]
-  class MultiThreadSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
+  class MultiThreadMergeSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
     def divideInterval(n:Int, st:Int, ed:Int) : List[(Int,Int)] = {
       assert( ed - st > n )
       val size = (ed - st + n - 1) / n
@@ -196,6 +281,11 @@ package object sorter {
         val to = min((i+1) * size, ed)
         (from, to)
       }).toList
+    }
+
+    def read_sort(file: IBigFile, st: Int, ed: Int): Future[Vector[Record]] = async{
+      val data : Vector[Record] = file.getRecords(st,ed)
+      sort(data)
     }
 
     def sortMiniChunk(input: IBigFile, st:Int, ed:Int) : Future[Vector[Record]] = {
