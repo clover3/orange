@@ -13,7 +13,6 @@ import slave.Record._
 import slave.util._
 
 import scala.collection.mutable.MutableList
-import scala.collection.parallel.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -239,7 +238,8 @@ class SingleFile(name : String) extends IBigFile {
     raf.readFully(buf)
 
     
-    val readline = new String(buf.take(100))    val keyString = readline.take(keyOffset.toInt)
+    val readline = new String(buf.take(100))
+    val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
@@ -258,7 +258,8 @@ class SingleFile(name : String) extends IBigFile {
     val recordVector = for(i <- Range(st,ed)) yield {
       raf.readFully(buf)
 
-      val readline = new String(buf.take(100))      val keyString = readline.take(keyOffset.toInt)
+      val readline = new String(buf.take(100))
+      val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
       }
