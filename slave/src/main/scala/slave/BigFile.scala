@@ -401,8 +401,12 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     }
   }
 
-  def appendRecords(records :Vector[Record]) : Unit = {
-    records map { record => appendRecord(record)}
+  private def appendRecords(records :Vector[Record]) : Unit = {
+    val filesize = memoryMappedFile.length()
+    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, lastPos + records.size * 100);
+    out.position(lastPos)
+    writeToBuf(out, records)
+    lastPos = out.position()
   }
 
 }

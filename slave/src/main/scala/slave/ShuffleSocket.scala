@@ -4,7 +4,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey._
-import java.util
 import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
@@ -37,23 +36,39 @@ package socket {
 
   // given IP and bytes, write downs data into IBigFile
   class ByteConsumer {
-    var ip2inBigfile: Map[String, (Int,BigOutputFile)] = Map.empty
+    var ip2inBigfile: Map[String, List[(Int,BigOutputFile)]] = Map.empty
+    var ip2size : Map[String, Int] = Map.empty
     var inBigFile: List[(String, Promise[IBigFile])] = Nil
     var size : Int = 0
-    def read(sockIp: String, records: Vector[Record]): Unit = {
+    var newFile : Boolean = false
+    var fileNum : Int = 0
+    def read(sockIp: String, records: Vector[Record], end : Boolean): Unit = {
 
-      if (ip2inBigfile.contains(sockIp))
-        ip2inBigfile(sockIp)._2.appendRecords(records)
+      if (ip2inBigfile.contains(sockIp) && newFile)
+        records map {record => ip2inBigfile(sockIp).head._2.appendRecord(record)}
       else {
-        val outBigfile = new BigOutputFile("runiel_is_cute_>_<")
-        outBigfile.setRecords(records)
-        ip2inBigfile = ip2inBigfile + (sockIp -> (size, outBigfile))
+        val outBigfile = new BigOutputFile("runiel_is_cute_>_<" + fileNum)
+        records map {record => outBigfile.appendRecord(record)}
+        if(ip2inBigfile.contains(sockIp))
+          ip2inBigfile = ip2inBigfile.updated(sockIp,(size,outBigfile)::ip2inBigfile(sockIp))
+        else
+          ip2inBigfile = ip2inBigfile + (sockIp -> List((size, outBigfile)))
+        newFile = true
+      }
+      if(end) {
+        ip2inBigfile(sockIp).head._2.close()
+        newFile = false
+        fileNum += 1
       }
 
       println("read record size ### " +records.size)
     }
-    def setSize(s : Int) : Unit = {size = s}
-    def get2Map(): Map[String, (Int,BigOutputFile)] = ip2inBigfile
+    def resetSize(s : Int) : Unit = {size = s}
+    def setSize(ip : String, s: Int) : Unit = {
+      ip2size = ip2size + (ip -> s)
+    }
+    def get2Map(): Map[String, List[(Int,BigOutputFile)]] = ip2inBigfile
+    def get2Size():Map[String, Int] = ip2size
   }
 
 
@@ -74,53 +89,28 @@ package socket {
     val buf: ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
   }
     
-/*
-          while (cur != end) {
-            print("cur : "); print(cur)
-            if (end - cur > 10000) {
-              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
-              cur = cur + 10000
-//              println(parseRecordBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
-            }
-            else {
-              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
-              cur = end
-            }
-          }
-//      }
-      cur_sock.flush()
-    }
-  }
-*/
 
   trait newShuffleSock {
-    def recvData(ip : String) : Future[BigOutputFile]
+    def recvData(ip : String) : Future[List[BigOutputFile]]
     def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit
+    def sendSize(ip: String, size: Int) : Unit
     def death() : Unit
-    def write(cur_sock: Channel, ip: String, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
-      // ed - st <= 1000
+    def write(cur_sock: Channel, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
       println("write hi")
-      println(ip)
-      println(cur_sock)
-      println(file)
-      println(st)
-      println(ed)
-      /*if(sock.isWritable()) {
-    sock.writeAndFlush(Unpooled.wrappedBuffer(ByteBuffer.wrap("hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi".getBytes()))).await()
-    }
-    else throw new Exception("sock isn't writable")
 
- sock onSuccess {
-        case cur_sock => */
-          var cur = st
-          val end = ed
-
-          cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
+          cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(st, ed).toMyBuffer))
  }
-  }
+    def writeSize(cur_sock : Channel, size:Int) : ChannelFuture = {
+
+      println("writesize : " + size)
+      val buf = Unpooled.directBuffer(4)
+      buf.writeInt(size)
+      cur_sock.writeAndFlush(buf)
+    }
+    
+}
 
   object ShuffleSocket {
-    var ip2Bigfile: Map[String, BigOutputFile] = Map.empty
 
     def apply(ips: List[String]) = new newShuffleSock {
       val ipList = ips
@@ -131,18 +121,32 @@ package socket {
       serverThread.start()
       clientThread.start()
 
-      def ip2Bigfile: Map[String, (Int,BigOutputFile)] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
+      def ip2Bigfile: Map[String, List[(Int,BigOutputFile)]] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
 
       def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
-      def recvData(ip: String): Future[BigOutputFile] = Future {
-        var check: BigOutputFile = null
-        while (check == null) {
+      def ip2Size = slaveServerSock.byteConsumer.get2Size() ++ slaveClientSock.byteConsumer.get2Size()
+
+      def recvData(ip: String): Future[List[BigOutputFile]] = Future {
+        var check: List[BigOutputFile] = Nil
+        while (check.isEmpty) {
           ip2Bigfile.get(ip) match {
-            case Some((size,bigFile)) => if(bigFile.size == size) check = bigFile
+            case Some(l) => ip2Size.get(ip) match {
+              case Some(size) =>
+              {
+          /*      println("list size" + l.size)
+                println("size" + size)
+                println("head file size" + l.head._2.size)
+                println("head size" + l.head._1)*/
+                if(l.size == size && l.head._2.size == l.head._1) 
+                  {check = l.map(_._2)}
+              }
+              case None =>
+            }
             case None =>
           }
         }
+        println("entire file size" + check.size)
         check
       }
 
@@ -152,7 +156,6 @@ package socket {
           //print("in getSock")
           ip2Sock.get(ip) match {
             case Some(sock) => check = sock
-              println("getSock")
             case None =>
           }
         }
@@ -160,12 +163,15 @@ package socket {
       }
 
       def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
-        println(ip)
-        println(ip2Sock)
         val sock = Await.result(getSock(ip),Duration.Inf)
-        print("sock in sendData")
-        println(sock)
-        write(sock, ip, file, st, ed).await()
+        println("sock in sendData")
+        write(sock, file, st, ed).await()
+      }
+
+      def sendSize(ip : String, size : Int) = {
+        val sock = Await.result(getSock(ip), Duration.Inf)
+        println("sock in sendSize")
+        writeSize(sock, size).await()
       }
 
       def death() = {
@@ -175,40 +181,133 @@ package socket {
     }
   }
 
-  class Buf2VectorRecordDecode(byteConsumer: ByteConsumer) extends ByteToMessageDecoder {
+
+  class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends ByteToMessageDecoder {
     var check = false
-    override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
-      println("Buf2VectorRecordDecode enter")
+    var check2 = false
+    var end = false
+    override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: java.util.List[AnyRef]): Unit = {
+      def cur_size : Int = {
+        println("end in cur_size   :   " + end) 
+        if(end){
+          end = false
+          0
+        }
+        else if(byteConsumer.ip2inBigfile.contains(ip))
+          byteConsumer.ip2inBigfile(ip).head._2.size
+        else
+          0
+      }
+
       if (byteBuf.readableBytes() < 4) {
         return
       }
       else if (!check){
         check = true
-        byteConsumer.setSize(ByteBuffer.wrap(byteBuf.readBytes(4).array()).getInt())
+        val size = ByteBuffer.wrap(byteBuf.readBytes(4).array()).getInt()
+        println("getSize : " + size) 
+        byteConsumer.setSize(ip, size)
+        return
+      }
+      else if (byteBuf.readableBytes() < 4) {
+        return
+      }
+      else if(!check2) {
+        check2 = true
+        val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
+        println("resetSize : " + size)
+        byteConsumer.resetSize(size)
         return
       }
       else if (byteBuf.readableBytes() < 100) {
-        println(" < 100")
-        println(byteBuf)
-        println(" < 100")
         return;
       }
+      else {
       val recordnum: Int = byteBuf.readableBytes() / 100
-      val result: Vector[Record] = (for (i <- Range(0, recordnum))
+      
+      val real_size = cur_size
+      println("readableBytes : " + byteBuf.readableBytes)
+      println("recordnum : " + recordnum)
+      println("real_size : " + real_size)
+      println("byteConsumer.size" + byteConsumer.size)
+      val result: Vector[Record] = (for (i <- Range(0, recordnum) if(i + real_size < byteConsumer.size))
         yield {
           (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
         }).toVector
-        println(" > 100")
-        println(byteBuf)
-        println(" > 100")
-      list.add(result)
+      if(real_size+ result.size == byteConsumer.size) {
+        check2 = false
+        end = true
+      }
+      println(result)
+      println("check2" + check2)
+      if(!result.isEmpty)
+        list.add((result,!check2))
+      }
+    }
+  }
+
+  class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsumer) extends ByteToMessageDecoder {
+    var check = false
+    var check2 = false
+    var end = false
+    override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: java.util.List[AnyRef]): Unit = {
+    val ip = c.remoteAddress().toString.toIPList.toIPString
+    def cur_size : Int = {
+          if(end) {
+          end = false
+            0
+          }
+          else if(byteConsumer.ip2inBigfile.contains(ip))
+            byteConsumer.ip2inBigfile(ip).head._2.size
+          else
+            0
+        }
+      if (byteBuf.readableBytes() < 4) {
+        return
+      }
+      else if (!check){
+        check = true
+        val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
+        println("getSize : " + size) 
+        byteConsumer.setSize(ip, size)
+        return
+      }
+      else if (byteBuf.readableBytes() < 4) {
+        return
+      }
+      else if(!check2) {
+        check2 = true
+        val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
+        println("resetSize : " + size)
+        byteConsumer.resetSize(size)
+        return
+      }
+      else if (byteBuf.readableBytes() < 100) {
+        return;
+      }
+      else {
+        val recordnum: Int = byteBuf.readableBytes() / 100
+        val real_size = cur_size
+        val result: Vector[Record] = (for (i <- Range(0, recordnum) if(i + real_size < byteConsumer.size))
+          yield {
+            (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+          }).toVector
+        if(real_size + result.size == byteConsumer.size) {
+          check2 = false
+          end = true
+        }
+        println(result)
+        if(!result.isEmpty)
+          list.add((result,!check2))
+        return
+      }
     }
   }
 
   class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInboundHandlerAdapter {
     override def channelRead(channelHandlerContext: ChannelHandlerContext, msg: Object) = {
-      val vectorRecord: Vector[Record] = msg.asInstanceOf[Vector[Record]]
-      byteconsumer.read(ip, vectorRecord)
+      val (vectorRecord , end): (Vector[Record], Boolean) = msg.asInstanceOf[(Vector[Record], Boolean)]
+      byteconsumer.read(ip, vectorRecord, end)
     }
 
     override def channelReadComplete(channelHandlerContext: ChannelHandlerContext): Unit = {
@@ -249,8 +348,9 @@ package socket {
               ip2Sock = ip2Sock + (c.remoteAddress().toString.toIPList.toIPString -> c)
               LOG.info(ip2Sock)
               val cp: ChannelPipeline = c.pipeline
-              cp.addLast(new Buf2VectorRecordDecode(byteConsumer))
-              cp.addLast(new ServerHandler(c.remoteAddress().toString.toIPList.toIPString, byteConsumer))
+              val ip : String = c.remoteAddress().toString.toIPList.toIPString
+              cp.addLast(new Buf2VectorRecordDecode(ip,byteConsumer))
+              cp.addLast(new ServerHandler(ip, byteConsumer))
             }
           })
           val cf: ChannelFuture = bs.bind(port).sync()
@@ -272,8 +372,8 @@ package socket {
     }
 
     override def channelRead(channelHandlerContext: ChannelHandlerContext, o: scala.Any): Unit = {
-      val vectorRecord: Vector[Record] = o.asInstanceOf[Vector[Record]]
-      byteConsumer.read(c.remoteAddress().toString.toIPList.toIPString, vectorRecord)
+      val (vectorRecord , end): (Vector[Record], Boolean) = o.asInstanceOf[(Vector[Record], Boolean)]
+      byteConsumer.read(c.remoteAddress().toString.toIPList.toIPString, vectorRecord, end)
     }
 
     override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, throwable: Throwable): Unit = {
@@ -302,11 +402,10 @@ package socket {
             .handler(new ChannelInitializer[SocketChannel] {
             override def initChannel(c: SocketChannel): Unit = {
               val cp: ChannelPipeline = c.pipeline()
-              cp.addLast(new Buf2VectorRecordDecode(byteConsumer))
+              cp.addLast(new Buf2VectorRecordClientDecode(c, byteConsumer))
               cp.addLast(new myClientHandler(c, byteConsumer))
             }
           })
-          println(clientList)
           ip2Sock = (for (ip <- clientList) yield {
             val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
             (ip._1, cf.channel())
