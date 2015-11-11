@@ -1,31 +1,26 @@
 package slave
 
 import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.nio.channels.SelectionKey._
-import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
-import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled
+
+import common.typedef._
+import io.netty.bootstrap.{Bootstrap, ServerBootstrap}
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
+import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket._
-import io.netty.channel.nio.{NioEventLoopGroup, NioEventLoop}
-import io.netty.channel.socket.nio.{NioSocketChannel, NioServerSocketChannel}
+import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
 import slave.Record._
+
 import scala.concurrent.ExecutionContext.Implicits.global
-import java.lang.Thread
-
-import common.typedef._
-
-import scala.concurrent.{Promise, Future}
-import scala.concurrent.Await
 import scala.concurrent.duration._
-
+import scala.concurrent.{Await, Future, Promise}
+ 
 /**
- * Created by Soyeon on 2015-10-31.
+* Created by Soyeon on 2015-10-31.
  */
 
 /* ipList example : List("141.223.83.113", "127.0.0.1", "141.223.175.212", ...)
