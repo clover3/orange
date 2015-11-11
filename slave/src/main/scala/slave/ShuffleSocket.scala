@@ -18,7 +18,7 @@ import slave.Record._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
- 
+
 /**
 * Created by Soyeon on 2015-10-31.
  */

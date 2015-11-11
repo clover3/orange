@@ -8,15 +8,12 @@ import java.io._
 import java.nio.channels.FileChannel
 import java.nio.{ByteBuffer, MappedByteBuffer}
 
-import common.typedef.Partitions
-import slave.Record._
+import common.typedef.Partitionsimport slave.Record._
 import slave.util._
 
 import scala.collection.mutable.MutableList
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
-
 
 trait IBigFile {
     val recordPerFile = 327680
@@ -258,15 +255,12 @@ class SingleFile(name : String) extends IBigFile {
     val recordVector = for(i <- Range(st,ed)) yield {
       raf.readFully(buf)
 
-      val readline = new String(buf.take(100))
       val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
       }
       recordVector.toVector
   }
-
-}
 
 
 class ConstFile extends IBigFile{
@@ -348,6 +342,7 @@ class AppendOutputFile(outputPath: String) {
   def toInputFile : IBigFile = {
     new SingleFile(outputPath)
   }
+
 }
 
 class BigOutputFile(outputPath: String) extends  IOutputFile {
@@ -406,6 +401,8 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     writeToBuf(out, records)
     lastPos = out.position()
   }
+
+
 
 }
 

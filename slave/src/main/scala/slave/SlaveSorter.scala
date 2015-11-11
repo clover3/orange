@@ -5,15 +5,12 @@ import slave.future._
 import slave.util.profile
 
 import scala.annotation.tailrec
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutableimport scala.collection.mutable.ArrayBuffer
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.math._
 
-import scala.concurrent.{Await, Promise, ExecutionContext, Future}
-import scala.util.{Success, Failure}
-import scala.async.Async.{async, await}
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Sorting
 
 
