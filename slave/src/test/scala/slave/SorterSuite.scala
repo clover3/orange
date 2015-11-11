@@ -10,7 +10,10 @@ class SorterSuite extends FunSuite {
   def profile[R](code: => R, t: Long = System.currentTimeMillis()) = (code, System.currentTimeMillis() - t)
   val pathLocal = List("inputdir1", "inputdir2")
   val pathHDD = List("E:\\Test\\inputdir1","E:\\Test\\inputdir2")
-  test("sorting test - virtual file") {
+  val pathMultiHDD = List("E:\\Test\\inputdir1","F:\\Test\\inputdir2")
+
+
+  test("sorting test - Single+Single") {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathLocal)
     val rs:ResourceChecker = new ResourceChecker()
@@ -25,4 +28,22 @@ class SorterSuite extends FunSuite {
     println("merge time(ms) :"+ timeMerge)
   }
 
+  test("sorting test - Multi+Single") {
+    //val input: IBigFile = new ConstFile
+    val input: IBigFile = new MultiFile(pathLocal)
+    val rs:ResourceChecker = new ResourceChecker()
+
+    val sorter = new MultiThreadSorter(rs)
+    val merger: ChunkMerger = new SingleThreadMerger
+
+    // operate on
+    val (sortedChunks, timeSort) = profile{ sorter.generateSortedChunks(input) }
+    val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
+
+    println("sort  time(ms) :"+ timeSort)
+    println("merge time(ms) :"+ timeMerge)
+  }
+
+
 }
+
