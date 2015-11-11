@@ -95,27 +95,30 @@ package object sorter {
       minArr++= minList
       idxArr++= idxSeq
 
-      @tailrec
-      def mergeIteration : Unit = {
-        val minRec = minArr.minBy( rec => rec.key )
-        output.appendRecord(minRec)
-
-        val idxMinChunk = minArr.indexOf(minRec)                        // idxMin represents the selected chunk
-        minArr(idxMinChunk) = arrChunks(idxMinChunk).getRecord( idxArr(idxMinChunk) )
-
+      def getMinRec() = minArr.minBy( rec => rec.key )
+      def updateMinArray(minRec : Record) = {
+        val idxMinChunk:Int = minArr.indexOf(minRec)                        // idxMin represents the selected chunk
         idxArr(idxMinChunk) = idxArr(idxMinChunk) + 1
-
         if( arrChunks(idxMinChunk).numOfRecords <= idxArr(idxMinChunk) )      //
         {
           minArr.remove(idxMinChunk)
           idxArr.remove(idxMinChunk)
           arrChunks.remove(idxMinChunk)
         }
-
+        else
+          minArr(idxMinChunk) = arrChunks(idxMinChunk).getRecord( idxArr(idxMinChunk) )
+      }
+      @tailrec
+      def mergeIteration : Unit = {
         if( minArr.isEmpty )
           return
-        else
-          mergeIteration
+
+        val minRec = getMinRec()
+        output.appendRecord(minRec)
+
+        updateMinArray(minRec)
+
+        mergeIteration
       }
       mergeIteration
       output.close()
@@ -125,7 +128,7 @@ package object sorter {
 
 
   def getBlockSize(memSize :Int) : Int = {
-    1 * 10000
+    10 * 10000
         //memSize / 100 / 2
   }
   // continueWith

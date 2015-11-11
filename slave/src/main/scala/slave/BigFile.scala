@@ -10,6 +10,7 @@ import java.nio.channels.{Channels, FileChannel}
 import java.nio.charset.Charset
 
 import slave.Record._
+import slave.util._
 
 import scala.collection.mutable.MutableList
 import scala.collection.parallel.mutable
@@ -355,7 +356,10 @@ class AppendOutputFile(outputPath: String) {
 class BigOutputFile(outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
   val cachedRecord: MutableList[Record] = MutableList.empty
-  val memoryMappedFile = new RandomAccessFile(outputPath, "rw");
+  val memoryMappedFile = {
+    deleteIfExist(outputPath)
+    new RandomAccessFile(outputPath, "rw");
+  }
   var lastPos = 0
 
   def setRecords(records: Vector[Record]): Future[Unit] = Future{

@@ -7,6 +7,7 @@ import org.scalatest.FunSuite
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+import slave.util._
 
 // usage:
 
@@ -17,19 +18,7 @@ import scala.concurrent.duration.Duration
  */
 
 class BigFileSuite extends FunSuite {
-  def profile[R](code: => R, t: Long = System.currentTimeMillis()) = (code, System.currentTimeMillis() - t)
 
-  implicit class FileMonads(f: File) {
-    def check = if (f.exists) Some(f) else None //returns "Maybe" monad
-    def remove = if (f.delete()) Some(f) else None //returns "Maybe" monad
-  }
-
-  def deleteIfExist(path :String) = {
-    for {
-      foundFile <- new File(path).check
-      deletedFile <- foundFile.remove
-    } yield deletedFile
-  }
 
   test("check file read"){
     val input: IBigFile = new MultiFile(List("inputdir1", "inputdir2"))
