@@ -255,15 +255,15 @@ class SingleFile(name : String) extends IBigFile {
     val recordVector = for(i <- Range(st,ed)) yield {
       raf.readFully(buf)
 
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
+    val readline = new String(buf.take(100))
+	  val keyString = readline.take(keyOffset.toInt)      val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString) : Record
       }
       recordVector.toVector
   }
 
 
-class ConstFile extends IBigFile{
+\class ConstFile extends IBigFile{
   // returns total number of records in this file
   def numOfRecords: Int = 327680 * 2
 
