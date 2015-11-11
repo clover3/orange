@@ -56,7 +56,7 @@ package object sorter {
       }
       def removeRec(arr: ArrayBuffer[ArrayBuffer[Record]], rec:(Record,Int)) : ArrayBuffer[ArrayBuffer[Record]] = {
         arr(rec._2) -= rec._1
-        if (arr(rec._2).isEmpty) {
+        if (arr(rec._2).isEmpty)
           arr -= arr(rec._2)
         arr
       }
