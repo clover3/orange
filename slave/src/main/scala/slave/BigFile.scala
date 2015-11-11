@@ -8,7 +8,8 @@ import java.io._
 import java.nio.channels.FileChannel
 import java.nio.{ByteBuffer, MappedByteBuffer}
 
-import common.typedef.Partitionsimport slave.Record._
+import common.typedef.Partitions
+import slave.Record._
 import slave.util._
 
 import scala.collection.mutable.MutableList
@@ -308,35 +309,37 @@ class SingleFile(name : String) extends IBigFile {
     //getRecordDirect(i)
     getRecordByCached(i)
   }
-  def getRecordByCached(i:Int): Record = {
+
+  def getRecordByCached(i: Int): Record = {
     cache.getRecord(i) match {
       case None => getRecordFromFileWithCache(i)
       case Some(r) => r
     }
   }
-  def min(a:Int,b:Int) :Int = {
-    if(a > b) b
+
+  def min(a: Int, b: Int): Int = {
+    if (a > b) b
     else a
   }
 
-  def getRecordFromFileWithCache(i:Int) : Record = {
+  def getRecordFromFileWithCache(i: Int): Record = {
     //define randomAccessFile just for read("r)
 
 
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
-    val keyOffset :Long = 10
-    val totalOffset :Long= 100
-    val lineSize : Int = 100
+    val keyOffset: Long = 10
+    val totalOffset: Long = 100
+    val lineSize: Int = 100
     //set position
     val pos = lineSize * i
     raf.seek(pos.toLong)
-    val nRecord = min(400, numOfRecords-i)
-    val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
+    val nRecord = min(400, numOfRecords - i)
+    val buf: Array[Byte] = new Array[Byte](lineSize * nRecord)
     raf.readFully(buf)
 
-    val seq = for( i <- Range(0, nRecord) ) yield {
+    val seq = for (i <- Range(0, nRecord)) yield {
       val st = i * lineSize
       val ed = st + lineSize
       val readline = new String(buf.slice(st, ed))
@@ -356,45 +359,47 @@ class SingleFile(name : String) extends IBigFile {
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
-    val keyOffset :Long = 10
-    val totalOffset :Long= 100
-    val lineSize : Int = 100
+    val keyOffset: Long = 10
+    val totalOffset: Long = 100
+    val lineSize: Int = 100
     //set position
-    val pos :Long = (totalOffset) * i
+    val pos: Long = (totalOffset) * i
     raf.seek(pos)
-    val buf :Array[Byte] = new Array[Byte](lineSize)
+    val buf: Array[Byte] = new Array[Byte](lineSize)
     raf.readFully(buf)
 
-    
+
     val readline = new String(buf.take(100))
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
     (keyString, dataString)
   }
+
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] =
-  {
+  def getRecords(st: Int, ed: Int): Vector[Record] = {
 
-    val keyOffset :Long = 10
-    val totalOffset :Long = 100
-    val lineSize:Int =100
-    var pos : Long =0
-    pos =st*totalOffset
+    val keyOffset: Long = 10
+    val totalOffset: Long = 100
+    val lineSize: Int = 100
+    var pos: Long = 0
+    pos = st * totalOffset
     raf.seek(pos)
-    val buf :Array[Byte] = new Array[Byte](lineSize)
-    val recordVector = for(i <- Range(st,ed)) yield {
+    val buf: Array[Byte] = new Array[Byte](lineSize)
+    val recordVector = for (i <- Range(st, ed)) yield {
       raf.readFully(buf)
 
-    val readline = new String(buf.take(100))
-	  val keyString = readline.take(keyOffset.toInt)      val dataString = readline.drop(keyOffset.toInt)
-      (keyString, dataString) : Record
-      }
-      recordVector.toVector
+      val readline = new String(buf.take(100))
+      val keyString = readline.take(keyOffset.toInt)
+      val dataString = readline.drop(keyOffset.toInt)
+
+      (keyString, dataString): Record
+    }
+    recordVector.toVector
   }
+}
 
-
-\class ConstFile extends IBigFile{
+class ConstFile extends IBigFile{
   // returns total number of records in this file
   def numOfRecords: Int = 327680 * 2
 
