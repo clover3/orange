@@ -41,7 +41,6 @@ package socket {
     var inBigFile: List[(String, Promise[IBigFile])] = Nil
 
     def read(sockIp: String, records: Vector[Record]): Unit = {
-      println("read ### records")
 
       if (ip2inBigfile.contains(sockIp))
         records map { record => ip2inBigfile(sockIp).appendRecord(record) }
@@ -51,7 +50,7 @@ package socket {
         ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
       }
 
-      println(records)
+      println("read record size ### " +records.size)
     }
 
     def get2Map(): Map[String, BigOutputFile] = ip2inBigfile
@@ -73,7 +72,31 @@ package socket {
     lazy val clientList = cList.tail
 
     val buf: ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
+  }
+    
+/*
+          while (cur != end) {
+            print("cur : "); print(cur)
+            if (end - cur > 10000) {
+              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
+              cur = cur + 10000
+//              println(parseRecordBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
+            }
+            else {
+              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
+              cur = end
+            }
+          }
+//      }
+      cur_sock.flush()
+    }
+  }
+*/
 
+  trait newShuffleSock {
+    def recvData(ip : String) : Future[BigOutputFile]
+    def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit
+    def death() : Unit
     def write(cur_sock: Channel, ip: String, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
       // ed - st <= 1000
       println("write hi")
@@ -94,30 +117,12 @@ package socket {
 
           cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
  }
-    }
-/*
-          while (cur != end) {
-            print("cur : "); print(cur)
-            if (end - cur > 10000) {
-              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
-              cur = cur + 10000
-//              println(parseRecordBuffer(file.getRecords(cur, cur + 10000).toMyBuffer))
-            }
-            else {
-              cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(cur, end).toMyBuffer))
-              cur = end
-            }
-          }
-//      }
-      cur_sock.flush()
-    }
   }
-*/
 
   object ShuffleSocket {
     var ip2Bigfile: Map[String, BigOutputFile] = Map.empty
 
-    def apply(ips: List[String]) = new ShuffleSocket {
+    def apply(ips: List[String]) = new newShuffleSock {
       val ipList = ips
       val slaveServerSock = new SlaveServerSock(ipList)
       val serverThread = new Thread(slaveServerSock)
@@ -160,9 +165,7 @@ package socket {
         val sock = Await.result(getSock(ip),Duration.Inf)
         print("sock in sendData")
         println(sock)
-        write(sock, ip, file, st, ed).sync()
-        println(serverList)
-        println(clientList)
+        write(sock, ip, file, st, ed).await()
       }
 
       def death() = {
@@ -177,6 +180,8 @@ package socket {
       println("Buf2VectorRecordDecode enter")
       if (byteBuf.readableBytes() < 100) {
         println(" < 100")
+        println(byteBuf)
+        println(" < 100")
         return;
       }
       val recordnum: Int = byteBuf.readableBytes() / 100
@@ -184,6 +189,9 @@ package socket {
         yield {
           (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
         }).toVector
+        println(" > 100")
+        println(byteBuf)
+        println(" > 100")
       list.add(result)
     }
   }
@@ -278,6 +286,7 @@ package socket {
       print("clientList : "); println(clientList)
       if (!clientList.isEmpty) {
         try {
+          Thread.sleep(1000)
           val b: Bootstrap = new Bootstrap()
           b.group(group)
             .channel(classOf[NioSocketChannel])

@@ -128,7 +128,7 @@ package object sorter {
 
 
   def getBlockSize(memSize :Int) : Int = {
-    10 * 10000
+    100 * 10000
         //memSize / 100 / 2
   }
   // continueWith
@@ -177,7 +177,7 @@ package object sorter {
       val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem)
       println("mem :"+mem + " blockSize:"+ blockSize)
-      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
+      val inputSeq = divideChunk(input, blockSize, "temp/sortedChunk")
       inputSeq.map(read_sort_write).toList
     }
   }
