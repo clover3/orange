@@ -212,7 +212,9 @@ class SingleFile(name : String) extends IBigFile {
     raf.readFully(buf)
 
     val seq = for( i <- Range(0, nRecord) ) yield {
-      val readline = new String(buf.take(100))
+      val st = i * lineSize
+      val ed = st + lineSize
+      val readline = new String(buf.slice(st, ed))
       val keyString = readline.take(keyOffset.toInt)
       val dataString = readline.drop(keyOffset.toInt)
       (keyString, dataString)
