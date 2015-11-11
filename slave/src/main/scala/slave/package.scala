@@ -32,7 +32,7 @@ package object slave {
       partitions
     }
 
-    def sort : IBigFile = {
+    def sort : List[Future[IBigFile]] = {
       val slaveSorter = new SlaveSorter()
       slaveSorter.run(inputDirs)
     }

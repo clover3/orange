@@ -26,7 +26,7 @@ package object sorter {
   val sortedFileName = "sorted"
   // Phase 1 of the sorting process
   trait ChunkSorter {
-    def generateSortedChunks(input: IBigFile): List[IBigFile]
+    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]]
 
     //  TODO :[Optimization] change sort to in-memory sort.
     def sort(data: Vector[Record]) : Vector[Record] = data.sortBy(rec => rec._1)
@@ -242,20 +242,18 @@ package object sorter {
       }
     }
 
-
-    def generateSortedChunks(input: IBigFile): List[IBigFile] = {
+    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem)
       println("mem :"+mem + " blockSize:"+ blockSize)
       val inputSeq = divideChunk(input, blockSize, "temp/sortedChunk")
-      inputSeq.map(read_sort_write).toList
+      inputSeq.map(t => Future{read_sort_write(t)}).toList
     }
   }
 
   class MultiThreadSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
-
     override
-    def generateSortedChunks(input: IBigFile): List[IBigFile] = {
+    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem / 4)
       println("mem :"+mem + " blockSize:"+ blockSize)
@@ -263,7 +261,7 @@ package object sorter {
       val lstFutureFile : List[Future[IBigFile]]= {
         inputSeq.map( t => Future{read_sort_write(t)}).toList
       }
-      Await.result(all(lstFutureFile), Duration.Inf)
+      lstFutureFile
     }
   }
 
@@ -313,28 +311,25 @@ package object sorter {
       }
     }
 
-    override def generateSortedChunks(input: IBigFile): List[IBigFile] = {
+    override def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
       println("Mem : " + mem)
       val blockSize = getBlockSize(mem)
       val inputSeq = divideChunk(input, blockSize, "sortedChunk")
-      inputSeq.map(sortChunk).toList
+      inputSeq.map(t => Future{sortChunk(t)}).toList
     }
   }
 
 
   class SlaveSorter {
-    def run(inputDirs: List[String]): IBigFile = {
+    def run(inputDirs: List[String]): List[Future[IBigFile]] = {
       // initializing structs
       val input: IBigFile = new MultiFile(inputDirs)
       //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
-      val merger: ChunkMerger = new SingleThreadMerger
       val sorter: ChunkSorter = new SingleThreadSorter(rs)
-
       // operate on
-      val sortedChunks: List[IBigFile] = sorter.generateSortedChunks(input)
-      merger.MergeBigChunk(sortedChunks)
+      sorter.generateSortedChunks(input)
     }
   }
 
