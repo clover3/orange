@@ -46,7 +46,7 @@ package socket {
       if (ip2inBigfile.contains(sockIp))
         records map { record => ip2inBigfile(sockIp).appendRecord(record) }
       else {
-        val outBigfile = new BigOutputFile("outputdir")
+        val outBigfile = new BigOutputFile("runiel_is_cute_>_<")
         outBigfile.setRecords(records)
         ip2inBigfile = ip2inBigfile + (sockIp -> outBigfile)
       }
