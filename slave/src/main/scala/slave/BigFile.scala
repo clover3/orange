@@ -13,7 +13,8 @@ import slave.util._
 
 import scala.collection.mutable.MutableList
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 
 trait IBigFile {
     val recordPerFile = 327680
@@ -125,6 +126,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
 class RecordCache {
   val maxEntry = 50
   type CacheEntry = (Int, Int, Vector[Record])
+
   var cacheVector : Vector[CacheEntry] = Vector.empty
   def touch(loc:Int) = {}
   def addRecords(records :Vector[Record], loc :Int) = {
@@ -162,6 +164,135 @@ class RecordCache {
     removeCheck(loc)
     rec
   }
+
+}
+
+class RecordCache2(name : String) {
+
+  val maxEntry = 50
+  type CacheEntry = (Int, Int, Vector[Record])
+  type CacheEntryF = (Int, Int, Future[Vector[Record]])
+  var cacheVector : Vector[CacheEntry] = Vector.empty
+  var cacheVectorF : Vector[CacheEntryF] = Vector.empty
+
+  def touch(loc:Int) = {}
+
+  val raf = new RandomAccessFile(name, "r")
+  lazy val numOfRecords: Int = raf.length().toInt / 100
+  val keyOffset :Long = 10
+  val totalOffset :Long= 100
+  val lineSize : Int = 100
+
+
+  def min(a:Int,b:Int) :Int = {
+    if(a > b) b
+    else a
+  }
+
+  //File read func
+  def readFile(pos:Int ,loc:Int) : Vector[Record]={
+    raf.seek(pos.toLong)
+    val nRecord = min(400, numOfRecords-loc)
+    val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
+    raf.readFully(buf)
+    val seq = for( i <- Range(0, nRecord) ) yield {
+      val st = i * lineSize
+      val ed = st + lineSize
+      val readline = new String(buf.slice(st, ed))
+      val keyString = readline.take(keyOffset.toInt)
+      val dataString = readline.drop(keyOffset.toInt)
+      (keyString, dataString)
+    }
+    seq.toVector
+  }
+
+
+
+  //case loc == end of cache
+  def addFutureRecords(i:Int) :Unit  = {
+    val loc = lineSize * (i +1)
+    val records : Vector[Record] = readFile(loc,i)
+    if( cacheVectorF.size < maxEntry ) {
+      val entry = (loc, records.size, Future {records})
+      cacheVectorF = entry +: cacheVectorF
+    }
+  }
+  //cacheVector ++ cacheVectorF.....how?
+  def mergeCacheFToCache  : Unit= {
+    //define randomAccessFile just for read("r)
+    cacheVectorF.map(x=>Await.result(x._3,Duration.Inf))
+    //cacheVector = cacheVector ++ cacheVectorF
+  }
+
+
+
+  def contain(loc :Int)(entry: CacheEntry) = {
+    val begin = entry._1
+    val end = entry._1 + entry._2
+    begin <= loc && loc < end
+  }
+// same func above func
+  def containF(loc :Int)(entry: CacheEntryF) = {
+    val begin = entry._1
+    val end = entry._1 + entry._2
+    begin <= loc && loc < end
+  }
+
+  def endOf(loc:Int)(entry: CacheEntry) = {
+    val end = entry._1 + entry._2
+    loc + 1 == end
+  }
+
+  //to make new cacheF
+  def endOfcacheF(loc:Int)(vectorEntryF: Vector[CacheEntryF]) = {
+    val end = vectorEntryF.last._1 + vectorEntryF.last._2
+    loc + 1 == end
+  }
+  def hasRecord(loc :Int) : Boolean = {
+    cacheVector.exists( contain(loc) )
+  }
+
+  def removeCheck(loc:Int): Unit = {
+    cacheVector = cacheVector.filterNot(endOf(loc))
+  }
+
+  def getRecord(loc :Int) : Option[Record] = {
+    val rec: Option[Record] = cacheVector.find(contain(loc)) match {
+      case Some(e) => {
+        //case 1. record(i) exists in cache  =>find record i
+        val index = loc - e._1
+        val vector: Vector[Record] = e._3
+        Option(vector(index))
+      }
+      case None => cacheVectorF.find(containF(loc)) match {
+        //case 2. record(i) didn't exists in cache =>
+        case None => {
+          //case 2.1 record(i) didn't exists in cacheF =>make new cacheF
+          addFutureRecords(loc)
+          None
+        }
+        case Some(e) => {
+          //case 2.2 record(i) exists in cacheF
+          if (endOfcacheF(loc)(cacheVectorF)) {
+            //case 2.2.1 record(i) is end of cacheF  =>make next new cacheF & cacheF convert to cache
+            addFutureRecords(loc+1)
+            mergeCacheFToCache
+            None
+          } else {
+            //case 2.2.2 record(i) is not end of cacheF  => await result
+            Await.result(e._3, Duration.Inf)
+            None
+          }
+        }
+      }
+
+    }
+    removeCheck(loc)
+    rec
+  }
+
+
+
 
 }
 
