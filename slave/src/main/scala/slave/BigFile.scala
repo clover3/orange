@@ -211,22 +211,30 @@ class RecordCache2(name : String) {
     seq.toVector
   }
 
-
+  def addRecords(loc :Int) = {
+    val pos = lineSize * (loc)
+    val records : Vector[Record] = readFile(pos,loc)
+    if( cacheVector.size < maxEntry ) {
+      val entry = (loc, records.size, records)
+      cacheVector = entry +: cacheVector
+    }
+  }
 
   //case loc == end of cache
-  def addFutureRecords(i:Int) :Unit  = {
-    val loc = lineSize * (i +1)
-    val records : Vector[Record] = readFile(loc,i)
-    if( cacheVectorF.size < maxEntry ) {
+  def addFutureRecords(loc:Int) :Unit  = {
+    val pos = lineSize * (loc +1)
+    val records : Vector[Record] = readFile(pos,loc)
+    if( cacheVectorF.size < maxEntry ) { //maybe always cacheVectorF.size =1
       val entry = (loc, records.size, Future {records})
       cacheVectorF = entry +: cacheVectorF
     }
   }
-  //cacheVector ++ cacheVectorF.....how?
+  //cacheVector ++ cacheVectorF , cacheVectorF = empty
   def mergeCacheFToCache  : Unit= {
-    //define randomAccessFile just for read("r)
-    cacheVectorF.map(x=>Await.result(x._3,Duration.Inf))
-    //cacheVector = cacheVector ++ cacheVectorF
+
+    val result : Vector[CacheEntry]= cacheVectorF.map(x=>(x._1,x._2,Await.result(x._3,Duration.Inf)))
+    cacheVector = cacheVector ++ result
+    cacheVectorF = Vector.empty
   }
 
 
@@ -272,25 +280,30 @@ class RecordCache2(name : String) {
       case None => cacheVectorF.find(containF(loc)) match {
         //case 2. record(i) didn't exists in cache =>
         case None => {
-          //case 2.1 record(i) didn't exists in cacheF =>make new cacheF
-          addFutureRecords(loc)
+          //case 2.1 record(i) didn't exists in cacheF =>make new cache
+          addRecords(loc)
           None
         }
         case Some(e) => {
           //case 2.2 record(i) exists in cacheF
           if (endOfcacheF(loc)(cacheVectorF)) {
-            //case 2.2.1 record(i) is end of cacheF  =>make next new cacheF & cacheF convert to cache
-            addFutureRecords(loc+1)
-            mergeCacheFToCache
-            None
+            //case 2.2.1 record(i) is end of cacheF  =>await result & delete now cacheF(Future) and add to cache(not future) & add new future
+
+            val index = loc - e._1
+            val vector : Vector[Record]= Await.result(e._3,Duration.Inf)
+            mergeCacheFToCache //delete now cacheF(Future) and add to cache(not future)
+            addFutureRecords(loc+1) //add new future
+            Option(vector(index))
+
           } else {
             //case 2.2.2 record(i) is not end of cacheF  => await result
-            Await.result(e._3, Duration.Inf)
-            None
+            val index = loc - e._1
+            val vector : Vector[Record]= Await.result(e._3,Duration.Inf)
+            Option(vector(index))
+
           }
         }
       }
-
     }
     removeCheck(loc)
     rec
