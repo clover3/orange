@@ -138,7 +138,7 @@ object newShuffleSock {
     val promise = Promise[Unit]()
 
 
-    def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
+    def ip2Sock: Map[String, Future[Channel]] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
 
     def recvData(ip: String): List[BigOutputFile] = {
@@ -161,18 +161,7 @@ object newShuffleSock {
     }
 
 
-    def getSock(ip: String): Future[Channel] = Future {
-      var check: Channel = null
-      while (check == null) {
-        Thread.sleep(100)
-        //print("in getSock")
-        ip2Sock.get(ip) match {
-          case Some(sock) => check = sock
-          case None =>
-        }
-      }
-      check
-    }
+    def getSock(ip: String): Future[Channel] = ip2Sock(ip)
 
     def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
       val sock = Await.result(getSock(ip),Duration.Inf)
@@ -329,7 +318,10 @@ class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInbou
 /* I need one serverSock.. (maybe..?) */
 class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
-  var ip2Sock: Map[String, Channel] = Map.empty
+  val sockPromises: Map[String, Promise[Channel]] =
+    (for( ip <- serverList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
+  val ip2Sock: Map[String, Future[Channel]] =
+    (for( ip <- serverList ) yield { (ip._1 ,sockPromises(ip._1).future) }).toMap
   val parentGroup = new NioEventLoopGroup(1)
   val childGroup = new NioEventLoopGroup()
   def handles(ip:String):Boolean = serverList.map(_._1).contains(ip)
@@ -352,10 +344,10 @@ class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runna
           .childHandler(new ChannelInitializer[SocketChannel] {
             override def initChannel(c: SocketChannel): Unit = {
               LOG.info("ConnectionReceiver accepted : " + c.remoteAddress())
-              ip2Sock = ip2Sock + (c.remoteAddress().toString.toIPList.toIPString -> c)
+              val ip : String = c.remoteAddress().toString.toIPList.toIPString
+              sockPromises(ip).complete(Success(c))
               LOG.info(ip2Sock)
               val cp: ChannelPipeline = c.pipeline
-              val ip : String = c.remoteAddress().toString.toIPList.toIPString
               val byteConsumer = new ByteConsumer
               cp.addLast(new Buf2VectorRecordDecode(ip,byteConsumer))
               cp.addLast(new ServerHandler(ip, byteConsumer))
@@ -394,7 +386,10 @@ class myClientHandler(c: SocketChannel, byteConsumer: ByteConsumer) extends Chan
 /* I need many slaveSock... (maybe..?) */
 class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
-  var ip2Sock: Map[String, Channel] = Map.empty
+  val sockPromises: Map[String, Promise[Channel]] =
+    (for( ip <- clientList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
+  val ip2Sock: Map[String, Future[Channel]] =
+    (for( ip <- clientList ) yield { (ip._1 ,sockPromises(ip._1).future) }).toMap
   val group = new NioEventLoopGroup()
   var sockCount = 0
   var socket2ByteConsumer : Map[SocketChannel,ByteConsumer] = Map.empty
@@ -423,17 +418,18 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
               cp.addLast(new myClientHandler(c, byteConsumer))
             }
           })
-        ip2Sock = (for (ip <- clientList) yield {
+
+        val clist = for (ip <- clientList) yield {
           val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
-          cf.channel()
-          (ip._1, cf.channel())
-        }).toMap
+          val ipStr = ip._1
+          val c = cf.channel()
+          sockPromises(ipStr).complete(Success(c))
+          c
+        }
 
         
 
-        for (cf <- ip2Sock.toList.map {
-          _._2
-        }) {
+        for (cf <- clist ) {
           cf.closeFuture().sync()
         }
       } catch {
