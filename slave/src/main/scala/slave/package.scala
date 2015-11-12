@@ -12,11 +12,11 @@ import slave.future._
 import slave.Sampler._
 import slave.socket._
 
-import scala.concurrent.Future
+import scala.concurrent.{Promise, Future, Await}
 import scala.io._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.Success
 
 
 package object slave {
@@ -37,7 +37,7 @@ package object slave {
       slaveSorter.run(inputDirs)
     }
 
-    def splitAndSend(sortedFile : List[Future[IBigFile]], partitions: Partitions, slaveSock : newShuffleSock) : List[String] = {
+    def splitAndSend(sortedFile : List[Future[IBigFile]], partitions: Partitions, slaveSock : newShuffleSock) : (List[String],Future[List[Unit]]) = {
       val ipList = partitions.map{_._1}
       val myIp: String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
       def splitFile(file : IBigFile, partitions: Partitions) : List[(String, Int, Int)] = {
@@ -53,19 +53,24 @@ package object slave {
       val expectedSendLen = fileLen * sendIpList.size
 //      println("sendIpList : " + sendIpList)
 //      println("fileLen : " + fileLen)
-      slaveSock.setExpectedSendLen(expectedSendLen)
       sendIpList map { ip => slaveSock.sendSize(ip, fileLen) }
-      sortedFile map  {
-        futureFile => futureFile onSuccess {
-          case file =>
-            val splitList : List[(String, Int, Int)] = splitFile(file, partitions).filter{ _._1 != myIp}
-//            println("splitList : " + splitList)
-            splitList map {data => 
-              {slaveSock.sendData(data._1, file, data._2, data._3); println("check!!!");slaveSock.addSendLen}
-            }
+      val flist = sortedFile map  {
+        futureFile => {
+          val p = Promise[Unit]()
+          futureFile onSuccess {
+            case file =>
+              val splitList : List[(String, Int, Int)] = splitFile(file, partitions).filter{ _._1 != myIp}
+              //            println("splitList : " + splitList)
+              splitList map {data =>
+                  slaveSock.sendData(data._1, file, data._2, data._3);
+              }
+              p.complete(Success())
+          }
+          p.future
         }
       }
-      ipList.filter(_ != myIp)
+      val l2 = ipList.filter(_ != myIp)
+      (l2,all(flist))
     }
 
     def shuffle(slaveSock : newShuffleSock, recvList : List[String]) : List[IBigFile] = {
@@ -78,18 +83,8 @@ package object slave {
       //resultList foreach {Await.result(_, Duration.Inf)}
       files.map( f => f.toInputFile )
     }
-    def end(slaveSock : newShuffleSock) = {
-
-        println("slaveSock.getSendLenStart : " + slaveSock.getSendLen)
-        println("slaveSock.getExpectedSendLenStart : " + slaveSock.getExpectedSendLen)
-      while (slaveSock.getSendLen != slaveSock.getExpectedSendLen)
-      {
-//        println("slaveSock.getSendLen : " + slaveSock.getSendLen)
-//        println("slaveSock.getExpectedSendLen : " + slaveSock.getExpectedSendLen)
-      }
-        println("slaveSock.getSendLenFinal : " + slaveSock.getSendLen)
-        println("slaveSock.getExpectedSendLenFinal : " + slaveSock.getExpectedSendLen)
-//      slaveSock.death()
+    def end(slaveSock : newShuffleSock,f:Future[List[Unit]] ) = {
+        Await.result(f, Duration.Inf)
     }
 
     def run() = {
@@ -98,9 +93,9 @@ package object slave {
       val sortedFile     : List[Future[IBigFile]]       = sort
       //val sortedFile : IBigFile = new ConstFile
 
-      val recvList       : List[String]                 = splitAndSend(sortedFile, partitions, slaveSock)
+      val (recvList,f)  : (List[String],Future[List[Unit]])       = splitAndSend(sortedFile, partitions, slaveSock)
       val netSortedFiles : List[IBigFile]               = shuffle(slaveSock, recvList)
-      end(slaveSock)
+      end(slaveSock,f)
     }
   }
 

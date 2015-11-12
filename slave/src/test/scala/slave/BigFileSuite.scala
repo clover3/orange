@@ -139,7 +139,11 @@ class BigFileSuite extends FunSuite {
 
   }
 
-
-
-
+  test("output empty file"){
+    val outpath = "empty_out"
+    val output: IOutputFile = new BigOutputFile(outpath)
+    output.close()
+    output.toInputFile
+  }
 }
+
