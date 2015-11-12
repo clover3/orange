@@ -90,14 +90,18 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val recordSize = 100
     def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : IndexedSeq[Record] = {
       val pos = stRecord * recordSize
+      val nRecord = edRecord - stRecord
       file.seek(pos)
-      val buf: Array[Byte] = new Array[Byte](recordSize)
-      val seq = for (i <- Range(stRecord, edRecord)) yield {
-        file.readFully(buf)
-        val readline = new String(buf)
+      val buf :Array[Byte] = new Array[Byte](recordSize * nRecord)
+      file.readFully(buf)
+
+      val seq = for( i <- Range(0, nRecord) ) yield {
+        val st = i * recordSize
+        val ed = st + recordSize
+        val readline = new String(buf.slice(st, ed))
         val keyString = readline.take(keySize)
         val dataString = readline.drop(keySize)
-        (keyString, dataString): Record
+        (keyString, dataString)
       }
       seq
     }
