@@ -42,15 +42,27 @@ package object slave {
       val myIp: String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
       def splitFile(file : IBigFile, partitions: Partitions) : List[(String, Int, Int)] = {
         val intList = Splitter.makePartitionsList(file, partitions)
+//        println("intList : " + intList)
         val result = ipList zip intList
-        def f (t:(String,(Int,Int))) = (t._1, t._2._1, t._2._1)
+//        println("result : " + result)
+        def f (t:(String,(Int,Int))) = (t._1, t._2._1, t._2._2)
         result map f
       }
+      val fileLen = sortedFile.size
+      val sendIpList = ipList.filter { _ != myIp}
+      val expectedSendLen = fileLen * sendIpList.size
+//      println("sendIpList : " + sendIpList)
+//      println("fileLen : " + fileLen)
+      slaveSock.setExpectedSendLen(expectedSendLen)
+      sendIpList map { ip => slaveSock.sendSize(ip, fileLen) }
       sortedFile map  {
         futureFile => futureFile onSuccess {
           case file =>
-            val splitList : List[(String, Int, Int)] = splitFile(file, partitions)
-            splitList map {data => slaveSock.sendData(data._1, file, data._2, data._3)}
+            val splitList : List[(String, Int, Int)] = splitFile(file, partitions).filter{ _._1 != myIp}
+//            println("splitList : " + splitList)
+            splitList map {data => 
+              {slaveSock.sendData(data._1, file, data._2, data._3); println("check!!!");slaveSock.addSendLen}
+            }
         }
       }
       ipList.filter(_ != myIp)
@@ -58,14 +70,26 @@ package object slave {
 
     def shuffle(slaveSock : newShuffleSock, recvList : List[String]) : List[IBigFile] = {
 
-      print("ipList : ")
+//      print("ipList : ")
       println(recvList)
       // recvList map (ip => Await.result(slaveSock.recvData(ip), Duration.Inf))
       
       val files : List[BigOutputFile] = (Await.result(all(recvList map (ip => slaveSock.recvData(ip))), Duration.Inf)).flatten
       //resultList foreach {Await.result(_, Duration.Inf)}
-      slaveSock.death()
       files.map( f => f.toInputFile )
+    }
+    def end(slaveSock : newShuffleSock) = {
+
+        println("slaveSock.getSendLenStart : " + slaveSock.getSendLen)
+        println("slaveSock.getExpectedSendLenStart : " + slaveSock.getExpectedSendLen)
+      while (slaveSock.getSendLen != slaveSock.getExpectedSendLen)
+      {
+//        println("slaveSock.getSendLen : " + slaveSock.getSendLen)
+//        println("slaveSock.getExpectedSendLen : " + slaveSock.getExpectedSendLen)
+      }
+        println("slaveSock.getSendLenFinal : " + slaveSock.getSendLen)
+        println("slaveSock.getExpectedSendLenFinal : " + slaveSock.getExpectedSendLen)
+//      slaveSock.death()
     }
 
     def run() = {
@@ -76,6 +100,7 @@ package object slave {
 
       val recvList       : List[String]                 = splitAndSend(sortedFile, partitions, slaveSock)
       val netSortedFiles : List[IBigFile]               = shuffle(slaveSock, recvList)
+      end(slaveSock)
     }
   }
 
