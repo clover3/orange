@@ -85,6 +85,7 @@ package object slave {
     }
     def end(slaveSock : newShuffleSock,f:Future[List[Unit]] ) = {
         Await.result(f, Duration.Inf)
+        slaveSock.death()
     }
 
     def run() = {
