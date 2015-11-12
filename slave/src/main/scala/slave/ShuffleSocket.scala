@@ -47,10 +47,15 @@ class ByteConsumer {
       outBigfileList.head._2.close()
       startedNewFile = false
       totalFileNum += 1
+      println("totalFileNum : " + totalFileNum)
     }
 
-    if( init.isCompleted && totalFileNum == FileTotalLen )
-      p.complete( Success(outBigfileList.map(_._2)) )
+    if( init.isCompleted ){
+      if(totalFileNum == FileTotalLen )
+      {
+        p.complete( Success(outBigfileList.map(_._2)) )
+      }
+    }
 
 //    println("read record size ### " +records.size)
   }
@@ -79,14 +84,23 @@ trait ShuffleSocket {
 
   val buf: ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
 
-  val consumerPromises :Map[String, Promise[ByteConsumer]] =
-    (for( ip <- serverList ) yield { ip._1 -> (Promise[ByteConsumer]()) }).toMap
+  lazy val consumerPromises : Map[String, Promise[ByteConsumer]] = {
+    val res : Map[String, Promise[ByteConsumer]]= (for( ip <- serverList ) yield { (ip._1 ,Promise[ByteConsumer]()) }).toMap
+    val res2 : Map[String, Promise[ByteConsumer]] = (for (ip <- clientList) yield { (ip._1, Promise[ByteConsumer]()) }).toMap
+    res ++ res2
+  }
+
+  var runiel = 0
 
   def dataFuture(ip:String): Future[List[BigOutputFile]] = {
+    println("I will connect "+ip)
     val csFuture = consumerPromises(ip).future
     val p = Promise[List[BigOutputFile]]()
     csFuture.onComplete {
-      case Success(cs) => p.completeWith(cs.p.future)
+      case Success(cs) => { 
+        p.completeWith(cs.p.future) 
+        runiel += 1
+        println("Connect Count: ", runiel)}
     }
     p.future
   }
@@ -94,7 +108,7 @@ trait ShuffleSocket {
 
 
 trait newShuffleSock {
-  def recvData(ip : String) : Future[List[BigOutputFile]]
+  def recvData(ip : String) : List[BigOutputFile]
   def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit
   def sendSize(ip: String, size: Int) : Unit
   val promise : Promise[Unit]
@@ -104,7 +118,6 @@ trait newShuffleSock {
   }
   def writeSize(cur_sock : Channel, size:Int) : ChannelFuture = {
 
-    println("writesize : " + size)
     val buf = Unpooled.directBuffer(4)
     buf.writeInt(size)
     cur_sock.writeAndFlush(buf)
@@ -112,7 +125,7 @@ trait newShuffleSock {
 
 }
 
-object ShuffleSocket {
+object newShuffleSock {
 
   def apply(partitions: Partitions) = new newShuffleSock {
     val ipList = partitions.map { _._1 }
@@ -128,11 +141,23 @@ object ShuffleSocket {
     def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
 
-    def recvData(ip: String): Future[List[BigOutputFile]] = {
-      if(slaveServerSock.handles(ip))
-        slaveServerSock.dataFuture(ip)
-      else
-        slaveClientSock.dataFuture(ip)
+    def recvData(ip: String): List[BigOutputFile] = {
+      val f = {
+        if(slaveServerSock.handles(ip))
+        {
+          println("server dataFuture("+ip)
+          slaveServerSock.dataFuture(ip)
+        }
+        else
+        {
+          println("client dataFuture("+ip)
+          slaveClientSock.dataFuture(ip)
+        }
+      }
+      println("##############         recvData        ###############")
+      val a = Await.result(f,Duration.Inf)
+      println("##############         recvDataEnd        ###############")
+      a
     }
 
 
@@ -172,7 +197,6 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
   var check2 = false
   var end = false
   override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: java.util.List[AnyRef]): Unit = {
-    //println("check2 " + check2 +" in ip : " + ip + " byte : " + byteBuf.readableBytes())
     def cur_size : Int = {
       if(end){
         end = false
@@ -188,7 +212,7 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     if (!check) {
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      println("getSize : " + size + " ip : " + ip)
+      //println("getSize : " + size + " ip : " + ip)
       byteConsumer.setFileTotalLen(size)
       return
     }
@@ -196,7 +220,7 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     if(!check2) {
       check2 = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      println("resetSize : " + size + " ip : " + ip)
+      //println("resetSize : " + size + " ip : " + ip)
       byteConsumer.resetSize(size)
       if(size == 0)
       {
@@ -209,27 +233,26 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     }
     if (byteBuf.readableBytes() < 100) return
     val recordnum: Int = byteBuf.readableBytes() / 100
-    val real_size = cur_size
-    /*println("readableBytes : " + byteBuf.readableBytes)
-    println("recordnum : " + recordnum)
-    println("real_size : " + real_size)
-    println("byteConsumer.size" + byteConsumer.headFileSize) */
-    val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
-      yield {
-        (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
-      }).toVector
-    if(real_size+ result.size == byteConsumer.headFileSize) {
-      println("real_size + result.size == byteConsumer.headFileSize : " + real_size , result.size, byteConsumer.headFileSize)
-      check2 = false
-      end = true
-    }
-    //println(result)
-    if(result.nonEmpty)
-      list.add((result,!check2))
+  val real_size = cur_size
+  /*println("readableBytes : " + byteBuf.readableBytes)
+  println("recordnum : " + recordnum)
+  println("real_size : " + real_size)
+  println("byteConsumer.size" + byteConsumer.headFileSize) */
+ val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
+   yield {
+     (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+   }).toVector
+ if(real_size+ result.size == byteConsumer.headFileSize) {
+   //println("real_size + result.size == byteConsumer.headFileSize : " + real_size , result.size, byteConsumer.headFileSize)
+   check2 = false
+   end = true
+ }
+ if(result.nonEmpty)
+   list.add((result,!check2))
   }
 }
 
-class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsumer) extends ByteToMessageDecoder {
+class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsumer, consumerPromises : Map[String, Promise[ByteConsumer]]) extends ByteToMessageDecoder {
   var check = false
   var check2 = false
   var end = false
@@ -249,7 +272,9 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
     if (!check) {
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      println("getSize : " + size + " ip : " + ip)
+      //println("getSize : " + size + " ip : " + ip)
+      if(!consumerPromises(ip).isCompleted)
+        consumerPromises(ip).complete(Success(byteConsumer))
       byteConsumer.setFileTotalLen(size)
       return
     }
@@ -257,8 +282,7 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
     if(!check2) {
       check2 = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      //println(byteBuf)
-      println("resetSize : " + size + " ip : " + ip)
+      //println("resetSize : " + size + " ip : " + ip)
       byteConsumer.resetSize(size)
       if(size == 0)
       {
@@ -271,19 +295,18 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
     }
     if (byteBuf.readableBytes() < 100) return
     val recordnum: Int = byteBuf.readableBytes() / 100
-    val real_size = cur_size
-    val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
-      yield {
-        (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
-      }).toVector
-    if(real_size + result.size == byteConsumer.headFileSize) {
-      println("real_size + result.size == byteConsumer.headFileSize : " + real_size + result.size, byteConsumer.headFileSize)
-      check2 = false
-      end = true
-    }
-    //println(result)
-    if(result.nonEmpty)
-      list.add((result,!check2))
+  val real_size = cur_size
+  val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
+    yield {
+      (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+    }).toVector
+  if(real_size + result.size == byteConsumer.headFileSize) {
+  //  println("real_size + result.size == byteConsumer.headFileSize : " + real_size + result.size, byteConsumer.headFileSize)
+    check2 = false
+    end = true
+  }
+  if(result.nonEmpty)
+    list.add((result,!check2))
   }
 }
 
@@ -309,7 +332,8 @@ class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runna
   var ip2Sock: Map[String, Channel] = Map.empty
   val parentGroup = new NioEventLoopGroup(1)
   val childGroup = new NioEventLoopGroup()
-  def handles(ip:String):Boolean = serverList.contains(ip)
+  def handles(ip:String):Boolean = serverList.map(_._1).contains(ip)
+  
 
 
   def death() = {
@@ -372,6 +396,7 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   var ip2Sock: Map[String, Channel] = Map.empty
   val group = new NioEventLoopGroup()
+  var sockCount = 0
   var socket2ByteConsumer : Map[SocketChannel,ByteConsumer] = Map.empty
 
   def sockToIP(socket: SocketChannel) : String = {
@@ -384,7 +409,6 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
   def death() = group.shutdownGracefully()
 
   def run() = {
-    println("clientList : " + clientList)
     if (clientList.nonEmpty) {
       try {
         Thread.sleep(1000)
@@ -395,15 +419,18 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
             override def initChannel(c: SocketChannel): Unit = {
               val byteConsumer = new ByteConsumer
               val cp: ChannelPipeline = c.pipeline()
-              cp.addLast(new Buf2VectorRecordClientDecode(c, byteConsumer))
+              cp.addLast(new Buf2VectorRecordClientDecode(c, byteConsumer, consumerPromises))
               cp.addLast(new myClientHandler(c, byteConsumer))
-              consumerPromises(sockToIP(c)).complete(Success(byteConsumer))
             }
           })
         ip2Sock = (for (ip <- clientList) yield {
           val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
+          cf.channel()
           (ip._1, cf.channel())
         }).toMap
+
+        
+
         for (cf <- ip2Sock.toList.map {
           _._2
         }) {

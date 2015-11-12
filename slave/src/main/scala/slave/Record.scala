@@ -35,12 +35,10 @@ package object Record {
 
       val byteArr: Array[Byte] = recordVector.flatten
       val size : Int = vectorRecord.size
-      println("setRecordSize in Packet : " + size)
       val buf = ByteBuffer.allocate(4)
       buf.putInt(size)
       val byteResult : Array[Byte] = buf.array() ++ byteArr
       val result = ByteBuffer.wrap(byteResult)
-      println(result)
       result
     }
   }
