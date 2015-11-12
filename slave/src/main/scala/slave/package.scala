@@ -74,7 +74,7 @@ package object slave {
       println(recvList)
       // recvList map (ip => Await.result(slaveSock.recvData(ip), Duration.Inf))
       
-      val files : List[BigOutputFile] = (Await.result(all(recvList map (ip => slaveSock.recvData(ip))), Duration.Inf)).flatten
+      val files : List[BigOutputFile] = (recvList map (ip => slaveSock.recvData(ip))).flatten
       //resultList foreach {Await.result(_, Duration.Inf)}
       files.map( f => f.toInputFile )
     }

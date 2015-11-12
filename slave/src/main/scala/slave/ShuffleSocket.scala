@@ -73,7 +73,7 @@ trait ShuffleSocket {
 
 
 trait newShuffleSock {
-  def recvData(ip : String) : Future[List[BigOutputFile]]
+  def recvData(ip : String) : List[BigOutputFile]
   def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit
   def sendSize(ip: String, size: Int) : Unit
   def setExpectedSendLen(len : Int) : Unit
@@ -133,25 +133,21 @@ object ShuffleSocket {
     })
 
 
-    def recvData(ip: String): Future[List[BigOutputFile]] = Future {
-      var check: List[BigOutputFile] = Nil
-      while (check.isEmpty) {
-        ip2Bigfile.get(ip) match {
-          case Some(l) => ip2Size.get(ip) match {
-            case Some(size) =>
-        /*            println("list size" + l.size)
-                    println("size" + size)
-                    println("head file size" + l.head._2.size)
-                    println("head size" + l.head._1)*/
-              if(l.size == size && l.head._2.size == l.head._1)
-                check = l.map(_._2)
-            case None =>
+    def recvData(ip: String): List[BigOutputFile] = {
+      var check : List[BigOutputFile] = Nil
+      val result = Future {
+        for (list <- ip2Bigfile.get(ip); size <- ip2Size.get(ip)) {
+          if(list.nonEmpty && list.size == size && list.head._2.size == list.head._1) {
+            check = list.map(_._2)
           }
-          case None =>
         }
+        if(check.isEmpty)
+          result
       }
+      Await.result(result,Duration.Inf)
       check
     }
+
 
     def getSock(ip: String): Future[Channel] = Future {
       var check: Channel = null
