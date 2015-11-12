@@ -19,41 +19,39 @@ import common.typedef._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
+import scala.util.Try
 
 // given IP and bytes, write downs data into IBigFile
 class ByteConsumer {
-  var ip2outBigfile: Map[String, List[(Int,BigOutputFile)]] = Map.empty
-  var ip2FileSize : Map[String, Int] = Map.empty
+  var outBigfileList: List[(Int,BigOutputFile)] = Nil
+  var FileTotalLen : Int = 0
   var headFileSize : Int = 0
-  var startNewFile : Boolean = false
+  var startedNewFile : Boolean = false
   var totalFileNum : Int = 0
   def read(sockIp: String, records: Vector[Record], end : Boolean): Unit = {
 
-    if (ip2outBigfile.contains(sockIp) && startNewFile)
-      records foreach {record => ip2outBigfile(sockIp).head._2.appendRecord(record)}
+    if (outBigfileList.nonEmpty && startedNewFile)
+      records foreach {record => outBigfileList.head._2.appendRecord(record)}
     else {
       val outBigfile = new BigOutputFile("runiel_is_cute_>_<_" + sockIp +"_" + totalFileNum)
       records foreach {record => outBigfile.appendRecord(record)}
-      if(ip2outBigfile.contains(sockIp))
-        ip2outBigfile = ip2outBigfile.updated(sockIp,(headFileSize,outBigfile)::ip2outBigfile(sockIp))
-      else
-        ip2outBigfile = ip2outBigfile + (sockIp -> List((headFileSize, outBigfile)))
-      startNewFile = true
+      outBigfileList = (headFileSize,outBigfile)::outBigfileList
+      startedNewFile = true
     }
     if(end) {
-      ip2outBigfile(sockIp).head._2.close()
-      startNewFile = false
+      outBigfileList.head._2.close()
+      startedNewFile = false
       totalFileNum += 1
     }
 
 //    println("read record size ### " +records.size)
   }
   def resetSize(s : Int) : Unit = {headFileSize = s}
-  def setSize(ip : String, s: Int) : Unit = {
-    ip2FileSize = ip2FileSize + (ip -> s)
+  def setFileTotalLen(s: Int) : Unit = {
+    FileTotalLen = s
   }
-  def get2Map(): Map[String, List[(Int,BigOutputFile)]] = ip2outBigfile
-  def get2Size():Map[String, Int] = ip2FileSize
+  def get2BigfileList(): List[(Int,BigOutputFile)] = outBigfileList
+  def getFileTotalLen(): Int = FileTotalLen
 }
 
 
@@ -114,11 +112,26 @@ object ShuffleSocket {
   def addSendLen() : Unit = { sendLen += 1 }
   def getSendLen() : Int = {println(sendLen);sendLen}
 
-    def ip2Bigfile: Map[String, List[(Int,BigOutputFile)]] = slaveServerSock.byteConsumer.get2Map() ++ slaveClientSock.byteConsumer.get2Map()
+    def ip2Bigfile: Map[String, List[(Int,BigOutputFile)]] = slaveServerSock.ip2ByteConsumer.mapValues{_.get2BigfileList} ++ (slaveClientSock.socket2ByteConsumer map {
+      case (socket, byteconsumer) =>
+        val tryIp = Try(socket.remoteAddress.toString.toIPList.toIPString).toOption
+        tryIp match {
+          case Some(ip) => (ip, byteconsumer.get2BigfileList())
+          case None => ("", byteconsumer.get2BigfileList())
+        }
+    })
 
     def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
-    def ip2Size = slaveServerSock.byteConsumer.get2Size() ++ slaveClientSock.byteConsumer.get2Size()
+    def ip2Size : Map[String,Int] = slaveServerSock.ip2ByteConsumer.mapValues{_.getFileTotalLen} ++ (slaveClientSock.socket2ByteConsumer map {
+      case (socket, byteconsumer) =>
+        val tryIp = Try(socket.remoteAddress.toString.toIPList.toIPString).toOption
+        tryIp match {
+          case Some(ip) => (ip, byteconsumer.getFileTotalLen())
+          case None => ("",byteconsumer.getFileTotalLen())
+        }
+    })
+
 
     def recvData(ip: String): Future[List[BigOutputFile]] = Future {
       var check: List[BigOutputFile] = Nil
@@ -181,8 +194,8 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
         end = false
         0
       }
-      else if(byteConsumer.ip2outBigfile.contains(ip))
-        byteConsumer.ip2outBigfile(ip).head._2.size
+      else if(byteConsumer.outBigfileList.nonEmpty)
+        byteConsumer.outBigfileList.head._2.size
       else
         0
     }
@@ -192,7 +205,7 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
       println("getSize : " + size + " ip : " + ip)
-      byteConsumer.setSize(ip, size)
+      byteConsumer.setFileTotalLen(size)
       return
     }
     if (byteBuf.readableBytes() < 4) return
@@ -243,8 +256,8 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
         end = false
         0
       }
-      else if(byteConsumer.ip2outBigfile.contains(ip))
-        byteConsumer.ip2outBigfile(ip).head._2.size
+      else if(byteConsumer.outBigfileList.nonEmpty)
+        byteConsumer.outBigfileList.head._2.size
       else
         0
     }
@@ -253,7 +266,7 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
       println("getSize : " + size + " ip : " + ip)
-      byteConsumer.setSize(ip, size)
+      byteConsumer.setFileTotalLen(size)
       return
     }
     if (byteBuf.readableBytes() < 4) return
@@ -312,7 +325,7 @@ class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runna
   var ip2Sock: Map[String, Channel] = Map.empty
   val parentGroup = new NioEventLoopGroup(1)
   val childGroup = new NioEventLoopGroup()
-  val byteConsumer = new ByteConsumer()
+  var ip2ByteConsumer : Map[String,ByteConsumer] = Map.empty
 
   def death() = {
     parentGroup.shutdownGracefully()
@@ -334,6 +347,8 @@ class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runna
               LOG.info(ip2Sock)
               val cp: ChannelPipeline = c.pipeline
               val ip : String = c.remoteAddress().toString.toIPList.toIPString
+              val byteConsumer = new ByteConsumer
+              ip2ByteConsumer = ip2ByteConsumer + (ip -> byteConsumer)
               cp.addLast(new Buf2VectorRecordDecode(ip,byteConsumer))
               cp.addLast(new ServerHandler(ip, byteConsumer))
             }
@@ -372,7 +387,7 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   var ip2Sock: Map[String, Channel] = Map.empty
   val group = new NioEventLoopGroup()
-  val byteConsumer = new ByteConsumer()
+  var socket2ByteConsumer : Map[SocketChannel,ByteConsumer] = Map.empty
 
   def death() = group.shutdownGracefully()
 
@@ -386,7 +401,9 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
           .channel(classOf[NioSocketChannel])
           .handler(new ChannelInitializer[SocketChannel] {
             override def initChannel(c: SocketChannel): Unit = {
+              val byteConsumer = new ByteConsumer
               val cp: ChannelPipeline = c.pipeline()
+              socket2ByteConsumer = socket2ByteConsumer + (c -> byteConsumer)
               cp.addLast(new Buf2VectorRecordClientDecode(c, byteConsumer))
               cp.addLast(new myClientHandler(c, byteConsumer))
             }
