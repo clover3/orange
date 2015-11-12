@@ -94,7 +94,7 @@ trait ShuffleSocket {
 
 
 trait newShuffleSock {
-  def recvData(ip : String) : List[BigOutputFile]
+  def recvData(ip : String) : Future[List[BigOutputFile]]
   def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit
   def sendSize(ip: String, size: Int) : Unit
   val promise : Promise[Unit]
@@ -124,6 +124,7 @@ object ShuffleSocket {
     clientThread.start()
     val promise = Promise[Unit]()
 
+
     def ip2Sock: Map[String, Channel] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
 
 
@@ -138,6 +139,7 @@ object ShuffleSocket {
     def getSock(ip: String): Future[Channel] = Future {
       var check: Channel = null
       while (check == null) {
+        Thread.sleep(100)
         //print("in getSock")
         ip2Sock.get(ip) match {
           case Some(sock) => check = sock
@@ -170,7 +172,7 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
   var check2 = false
   var end = false
   override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: java.util.List[AnyRef]): Unit = {
-    println("check2 " + check2 +" in ip : " + ip + " byte : " + byteBuf.readableBytes())
+    //println("check2 " + check2 +" in ip : " + ip + " byte : " + byteBuf.readableBytes())
     def cur_size : Int = {
       if(end){
         end = false
@@ -208,10 +210,10 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     if (byteBuf.readableBytes() < 100) return
     val recordnum: Int = byteBuf.readableBytes() / 100
     val real_size = cur_size
-    println("readableBytes : " + byteBuf.readableBytes)
+    /*println("readableBytes : " + byteBuf.readableBytes)
     println("recordnum : " + recordnum)
     println("real_size : " + real_size)
-    println("byteConsumer.size" + byteConsumer.headFileSize) 
+    println("byteConsumer.size" + byteConsumer.headFileSize) */
     val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
       yield {
         (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
