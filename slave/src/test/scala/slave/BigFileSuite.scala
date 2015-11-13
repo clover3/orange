@@ -151,5 +151,17 @@ class BigFileSuite extends FunSuite {
     output.close()
     output.toInputFile
   }
+
+  test("virtual file test") {
+    val file = new ConstFile
+    val vfile = new VirtualFile(file, 10, 15)
+
+    assert(vfile.numOfRecords == 5)
+
+    val rec  = vfile.getRecord(0)
+    println("rec(0):" +rec)
+    val recs = vfile.getRecords(0, vfile.numOfRecords)
+    println("recs(0:5):"+ recs)
+  }
 }
 

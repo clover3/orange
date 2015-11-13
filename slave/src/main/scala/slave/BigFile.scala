@@ -517,6 +517,16 @@ class ConstFile extends IBigFile{
   }
 }
 
+class VirtualFile( file:IBigFile, st:Int, ed:Int) extends IBigFile {
+  def numOfRecords = (ed - st)
+  def getRecord(i : Int) :Record = {
+    file.getRecord(i + st)
+  }
+  def getRecords(stArg:Int, edArg: Int) = {
+    file.getRecords( stArg + st, edArg + st)
+  }
+}
+
 trait IOutputFile {
   def setRecords(records : Vector[Record]) : Future[Unit]
   def appendRecord(record: Record ) : Unit
@@ -580,6 +590,7 @@ class AppendOutputFile(outputPath: String) {
 
 
 }
+
 
 class BigOutputFile(outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
