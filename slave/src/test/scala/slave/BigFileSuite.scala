@@ -41,6 +41,52 @@ class BigFileSuite extends FunSuite {
     for(i <- Range(0,10) ) println(result(i)._1)
   }
 
+  test("File write - few record using appendRecord - modified by kbs"){
+    val fileName = "out_test"
+    deleteIfExist(fileName)
+    val output : BigOutputFile = new BigOutputFile(fileName)
+
+    val constFile = new ConstFile
+    val cn =10000
+    val records = constFile.getRecords(0,cn)
+    println("record size :" + records.size)
+    assert(records(0)._1.length == 10)
+    assert(records(0)._2.length == 90)
+    for( rec <- records ) output.appendRecord(rec)
+    output.close()
+    val readRecords = output.toInputFile.getRecords(0,cn)
+    println(readRecords(0)._1)
+    println(readRecords(0)._2)
+    println(readRecords(1)._1)
+    println(readRecords(1)._2)
+    assert(readRecords(0)._1.length == 10)
+    assert(readRecords(0)._2.length == 90)
+    assert(records == readRecords)
+
+    val singleFile : IBigFile= output.toInputFilePreFetch
+    val (result1, time) = profile {
+      for (i<-Range(0,cn)){
+        val s = singleFile.getRecord(i)
+      }}
+    println("singleFile modified getRecordCache time(ms):" + time)
+    val record0= singleFile.getRecord(0)
+
+    //val s2 = singleFile.getRecord(10080)
+    //println("singleFile getrecord(0) :" + record0._1)
+    //println("singleFile getrecord(10000) :" + s2._1)
+
+    val singleFile2 :IBigFile = output.toInputFile
+    val (result, time2) = profile {
+      for (i<-Range(0,cn)){
+        val s = singleFile2.getRecord(i)
+      }}
+    println("singleFile origin getRecordCache time(ms): " + time2 )
+    //val s1 = singleFile2.getRecord(10080)
+    //println("singleFile getrecord(10000) :" + s1._1)
+    //val s = singleFile.getRecord(1)
+    //println("singleFile getrecord(1) :" + s._1)
+  }
+
   test("File write - few record using appendRecord"){
     val fileName = "out_test"
     deleteIfExist(fileName)
@@ -68,6 +114,7 @@ class BigFileSuite extends FunSuite {
 
 
   }
+
 
   test("File write - many record - appendRecord") {
     val fileName = "out_test1"
