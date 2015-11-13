@@ -47,16 +47,12 @@ package object slave {
         def f (t:(String,(Int,Int))) = (t._1, t._2._1, t._2._2)
         result map f
       }
-      println("===========            splitAndSend          ================")
-      println("sortedFile : " + sortedFile)
 
       val fileLen = sortedFile.size
       val sendIpList = ipList.filter { _ != myIp}
       var sendData = 0;
-      println("===========            sendIpList map       ================")
-      println("sendIpList : " + sendIpList)
+
       sendIpList map { ip => slaveSock.sendSize(ip, fileLen) }
-      println("===========            sendIpList map end   ================")
       val flist = sortedFile map  {
         futureFile => {
           val p = Promise[Unit]()
@@ -67,7 +63,6 @@ package object slave {
               splitList map {data =>
                   slaveSock.sendData(data._1, file, data._2, data._3);
                   sendData += 1
-                  println("I send data" + sendData)
               }
               p.complete(Success())
             case Failure(e) => {
@@ -77,7 +72,6 @@ package object slave {
           p.future
         }
       }
-      println("flist : " + flist)
       val l2 = ipList.filter(_ != myIp)
       (l2,all(flist))
     }
@@ -90,14 +84,12 @@ package object slave {
       files.map( f => f.toInputFile )
     }
     def end(slaveSock : newShuffleSock,f:Future[List[Unit]] ) = {
-        println("############# the end #################")
         Await.result(f, Duration.Inf)
-        println("############# the end #################")
     }
 
     def run() = {
       val partitions     : Partitions                   = getPartition
-      val slaveSock      : newShuffleSock               = newShuffleSock(partitions)
+      val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir)
       val sortedFile     : List[Future[IBigFile]]       = sort
       //val sortedFile : IBigFile = new ConstFile
 

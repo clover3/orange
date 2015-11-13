@@ -23,7 +23,7 @@ import scala.util.{Success, Try}
 import scala.async.Async.{async, await}
 
 // given IP and bytes, write downs data into IBigFile
-class ByteConsumer {
+class ByteConsumer(val tempDir : String) {
   var outBigfileList: List[(Int,BigOutputFile)] = Nil
   var FileTotalLen : Int = 0
   var headFileSize : Int = 0
@@ -46,7 +46,6 @@ class ByteConsumer {
       outBigfileList.head._2.close()
       startedNewFile = false
       totalFileNum += 1
-      println("totalFileNum : " + totalFileNum)
     }
 
     if( init.isCompleted ){
@@ -90,7 +89,8 @@ trait ShuffleSocket {
     res ++ res2
   }
 
-  var runiel = 0
+
+  val tempDir : String
 
   def dataFuture(ip:String): Future[List[BigOutputFile]] = {
     println("I will connect "+ip)
@@ -98,9 +98,8 @@ trait ShuffleSocket {
     val p = Promise[List[BigOutputFile]]()
     csFuture.onSuccess {
       case cs => {
-        p.completeWith(cs.p.future) 
-        runiel += 1
-        println("Connect Count: ", runiel)}
+        p.completeWith(cs.p.future)
+      }
     }
     p.future
   }
@@ -113,17 +112,16 @@ trait newShuffleSock {
   def sendSize(ip: String, size: Int) : Unit
   val promise : Promise[Unit]
   def death() : Unit
-  var writeVal = 0
+
   def write(cur_sock: Channel, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
-    writeVal += 1
-    println("call write : " + writeVal)
+
     cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(st, ed).toMyBuffer))
   }
   def writeSize(cur_sock : Channel, size:Int) : ChannelFuture = {
-    println("writeSize 1")
+
     val bytearray = ByteBuffer.allocate(4).putInt(size).array
     val buf = Unpooled.wrappedBuffer(bytearray)
-    println("writeSize 2")
+
     cur_sock.write(buf)
   }
 
@@ -131,11 +129,11 @@ trait newShuffleSock {
 
 object newShuffleSock {
 
-  def apply(partitions: Partitions) = new newShuffleSock {
+  def apply(partitions: Partitions, tempDir : String) = new newShuffleSock {
     val ipList = partitions.map { _._1 }
-    val slaveServerSock = new SlaveServerSock(ipList)
+    val slaveServerSock = new SlaveServerSock(ipList, tempDir)
     val serverThread = new Thread(slaveServerSock)
-    val slaveClientSock = new SlaveClientSock(ipList)
+    val slaveClientSock = new SlaveClientSock(ipList, tempDir)
     val clientThread = new Thread(slaveClientSock)
     serverThread.start()
     clientThread.start()
@@ -149,18 +147,14 @@ object newShuffleSock {
       val f = {
         if(slaveServerSock.handles(ip))
         {
-          println("server dataFuture("+ip)
           slaveServerSock.dataFuture(ip)
         }
         else
         {
-          println("client dataFuture("+ip)
           slaveClientSock.dataFuture(ip)
         }
       }
-      println("##############         recvData        ###############")
       val a = Await.result(f,Duration.Inf)
-      println("##############         recvDataEnd        ###############")
       a
     }
 
@@ -172,10 +166,8 @@ object newShuffleSock {
     }
 
     def sendSize(ip : String, size : Int) = {
-      println("before getsock")
       val sock = Await.result(getSock(ip), Duration.Inf)
       writeSize(sock, size)
-      println("writeSize : " + size)
     }
 
     def death() = {
@@ -206,7 +198,6 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     if (!check) {
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      //println("getSize : " + size + " ip : " + ip)
       byteConsumer.setFileTotalLen(size)
       return
     }
@@ -214,7 +205,6 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
     if(!check2) {
       check2 = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      //println("resetSize : " + size + " ip : " + ip)
       byteConsumer.resetSize(size)
       if(size == 0)
       {
@@ -266,7 +256,6 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
     if (!check) {
       check = true
       val size = ByteBuffer.wrap(byteBuf.readBytes(4).array).getInt
-      //println("getSize : " + size + " ip : " + ip)
       if(!consumerPromises(ip).isCompleted)
         consumerPromises(ip).complete(Success(byteConsumer))
       byteConsumer.setFileTotalLen(size)
@@ -321,7 +310,7 @@ class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInbou
 }
 
 /* I need one serverSock.. (maybe..?) */
-class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runnable {
+class SlaveServerSock(val ipList: List[String], val tempDir : String) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- serverList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -353,7 +342,7 @@ class SlaveServerSock(val ipList: List[String]) extends ShuffleSocket with Runna
               sockPromises(ip).complete(Success(c))
               LOG.info(ip2Sock)
               val cp: ChannelPipeline = c.pipeline
-              val byteConsumer = new ByteConsumer
+              val byteConsumer = new ByteConsumer(tempDir)
               cp.addLast(new Buf2VectorRecordDecode(ip,byteConsumer))
               cp.addLast(new ServerHandler(ip, byteConsumer))
               consumerPromises(ip).complete(Success(byteConsumer))
@@ -389,7 +378,7 @@ class myClientHandler(c: SocketChannel, byteConsumer: ByteConsumer) extends Chan
 }
 
 /* I need many slaveSock... (maybe..?) */
-class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runnable {
+class SlaveClientSock(val ipList: List[String], val tempDir : String) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- clientList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -410,7 +399,7 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
           .channel(classOf[NioSocketChannel])
           .handler(new ChannelInitializer[SocketChannel] {
             override def initChannel(c: SocketChannel): Unit = {
-              val byteConsumer = new ByteConsumer
+              val byteConsumer = new ByteConsumer(tempDir)
               val cp: ChannelPipeline = c.pipeline()
               cp.addLast(new Buf2VectorRecordClientDecode(c, byteConsumer, consumerPromises))
               cp.addLast(new myClientHandler(c, byteConsumer))
