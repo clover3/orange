@@ -33,6 +33,7 @@ class SplitterSuite extends FunSuite {
     lst.foreach(t => println(t._1, t._2))
   }
 
+  val tempDir = "temp"
   test("work to partition") {
     val master = "127.0.0.1:5959"
     val socket = new PartitionSocket(master)
@@ -47,8 +48,7 @@ class SplitterSuite extends FunSuite {
 
     val input: IBigFile = new MultiFile(inputDirs)
     val rs: ResourceChecker = new ResourceChecker()
-    val sorter = new MultiThreadSorter(rs)
-
+    val sorter = new MultiThreadSorter(rs,tempDir)
     // operate on
     val sortedChunks = Await.result(all(sorter.generateSortedChunks(input)), Duration.Inf)
 
