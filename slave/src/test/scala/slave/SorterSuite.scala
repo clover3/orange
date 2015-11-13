@@ -16,12 +16,12 @@ class SorterSuite extends FunSuite {
   val pathLocal = List("inputdir1", "inputdir2")
   val pathHDD = List("E:\\Test\\inputdir1","E:\\Test\\inputdir2")
   val pathMultiHDD = List("E:\\Test\\inputdir1","F:\\Test\\inputdir2")
-
+  val tempDir = "temp"
   test("Sort Only"){
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathLocal)
     val rs:ResourceChecker = new ResourceChecker()
-    val sorter = new MultiThreadSorter(rs)
+    val sorter = new MultiThreadSorter(rs, tempDir)
 
     // operate on
     val (sortedChunks, timeSort) = profile{
@@ -35,7 +35,7 @@ class SorterSuite extends FunSuite {
     val input: IBigFile = new MultiFile(pathLocal)
     val rs:ResourceChecker = new ResourceChecker()
     val merger: ChunkMerger = new SingleThreadMerger
-    val sorter = new SingleThreadSorter(rs)
+    val sorter = new SingleThreadSorter(rs, tempDir)
 
     // operate on
     val (sortedChunks, timeSort) = profile{
@@ -52,7 +52,7 @@ class SorterSuite extends FunSuite {
     val input: IBigFile = new MultiFile(pathLocal)
     val rs:ResourceChecker = new ResourceChecker()
 
-    val sorter = new MultiThreadSorter(rs)
+    val sorter = new MultiThreadSorter(rs, tempDir)
     val merger: ChunkMerger = new SingleThreadMerger
 
     // operate on
