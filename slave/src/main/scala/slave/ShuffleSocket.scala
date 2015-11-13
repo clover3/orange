@@ -13,7 +13,6 @@ import io.netty.channel.socket.nio.{NioSocketChannel, NioServerSocketChannel}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
-import slave.BigOutputFile
 import slave.Record._
 import common.typedef._
 
@@ -97,8 +96,8 @@ trait ShuffleSocket {
     println("I will connect "+ip)
     val csFuture = consumerPromises(ip).future
     val p = Promise[List[BigOutputFile]]()
-    csFuture.onComplete {
-      case Success(cs) => { 
+    csFuture.onSuccess {
+      case cs => {
         p.completeWith(cs.p.future) 
         runiel += 1
         println("Connect Count: ", runiel)}
@@ -399,13 +398,6 @@ class SlaveClientSock(val ipList: List[String]) extends ShuffleSocket with Runna
   val group = new NioEventLoopGroup()
   var sockCount = 0
   var socket2ByteConsumer : Map[SocketChannel,ByteConsumer] = Map.empty
-
-  def sockToIP(socket: SocketChannel) : String = {
-    val tryIp = Try(socket.remoteAddress.toString.toIPList.toIPString).toOption
-    tryIp match {
-      case Some(ip) => (ip)
-    }
-  }
 
   def death() = group.shutdownGracefully()
 

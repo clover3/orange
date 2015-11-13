@@ -13,6 +13,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.math._
 
+import java.io._
+
 
 /**
  * Created by Clover on 2015-11-01.
@@ -205,7 +207,7 @@ package object sorter {
   // read_sort_write : (IBigFile, outfileName, st,ed) -> IBigFile
   // sort : Vector[Record] -> [Vector[Record]]
   //
-  class SingleThreadSorter(val rs: ResourceChecker) extends ChunkSorter {
+  class SingleThreadSorter(val rs: ResourceChecker, val tempDir : String) extends ChunkSorter {
     def divideChunk(inFile:IBigFile, blockSize:Int, outPrefix:String) : IndexedSeq[(IBigFile, String, Int, Int)] = {
       val nTotal = inFile.numOfRecords
       val nBlocks = (nTotal + blockSize - 1) / blockSize
@@ -214,7 +216,7 @@ package object sorter {
       } yield {
         val st = i * blockSize
         val ed = min((i+1) * blockSize, nTotal)
-        val outfileName = outPrefix+i
+        val outfileName = tempDir+ "/" + outPrefix+i
         (inFile, outfileName, st, ed)
       }
     }
@@ -243,12 +245,12 @@ package object sorter {
       val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem)
       println("mem :"+mem + " blockSize:"+ blockSize)
-      val inputSeq = divideChunk(input, blockSize, "temp/sortedChunk")
+      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
       inputSeq.map(t => Future{read_sort_write(t)}).toList
     }
   }
 
-  class MultiThreadSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
+  class MultiThreadSorter(val rs2: ResourceChecker, override val tempDir : String) extends SingleThreadSorter(rs2, tempDir){
     override
     def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
@@ -265,7 +267,7 @@ package object sorter {
   // sortChunk( IBigFile, String, Int, Int) => IBigFile
   // -> sortMiniChunk : (IBigFile, Int, Int) => Future[Vector[Record]]
   // -> mergeMiniChunk : (Future[List[Vector[Record]]]) => Vector[Record]
-  class MultiThreadMergeSorter(val rs2: ResourceChecker) extends SingleThreadSorter(rs2){
+  class MultiThreadMergeSorter(val rs2: ResourceChecker, override val tempDir : String) extends SingleThreadSorter(rs2, tempDir){
     def divideInterval(n:Int, st:Int, ed:Int) : List[(Int,Int)] = {
       assert( ed - st > n )
       val size = (ed - st + n - 1) / n
@@ -319,12 +321,15 @@ package object sorter {
 
 
   class SlaveSorter {
-    def run(inputDirs: List[String]): List[Future[IBigFile]] = {
+    def run(inputDirs: List[String], tempDir : String): List[Future[IBigFile]] = {
       // initializing structs
       val input: IBigFile = new MultiFile(inputDirs)
+      var d = new File(tempDir)
+      if (!d.exists)
+        d.mkdir()
       //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
-      val sorter: ChunkSorter = new SingleThreadSorter(rs)
+      val sorter: ChunkSorter = new SingleThreadSorter(rs, tempDir)
       // operate on
       sorter.generateSortedChunks(input)
     }

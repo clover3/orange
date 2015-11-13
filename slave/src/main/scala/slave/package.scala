@@ -22,7 +22,7 @@ import scala.util.{Success, Failure}
 
 package object slave {
 
-  class Slave (val master : String, val inputDirs : List[String], val outputDir : String)  {
+  class Slave (val master : String, val inputDirs : List[String], val outputDir : String, val tempDir : String)  {
     val socket = new PartitionSocket(master)
     var inputDir: List[String] = Nil
 
@@ -35,7 +35,7 @@ package object slave {
 
     def sort : List[Future[IBigFile]] = {
       val slaveSorter = new SlaveSorter()
-      slaveSorter.run(inputDirs)
+      slaveSorter.run(inputDirs, tempDir)
     }
 
     def splitAndSend(sortedFile : List[Future[IBigFile]], partitions: Partitions, slaveSock : newShuffleSock) : (List[String],Future[List[Unit]]) = {
