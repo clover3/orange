@@ -62,6 +62,10 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     //define randomAccessFile just for read("r)
     val raf = new RandomAccessFile(fileList(fileIndex), "r")
 
+
+
+
+
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
@@ -74,6 +78,10 @@ class MultiFile(inputDirs : List[String])  extends IBigFile{
     val pos :Long = (totalOffset) * recordIndex
     raf.seek(pos)
     raf.readFully(buf)
+
+    //val ch = raf.getChannel()
+    //val mmap = ch.map(FileChannel.MapMode.READ_ONLY, pos, ch.size( ))
+    //mmap.get(buf)
     val readline = new String(buf)
     val keyString = readline.take(keyOffset.toInt)
     val dataString = readline.drop(keyOffset.toInt)
@@ -223,7 +231,7 @@ class RecordCache2(name : String) {
   //case loc == end of cache
   def addFutureRecords(loc:Int) :Unit  = {
     val pos = lineSize * (loc +1)
-    val records : Vector[Record] = readFile(pos,loc)
+    def records : Vector[Record] = readFile(pos,loc)
     if( cacheVectorF.size < maxEntry ) { //maybe always cacheVectorF.size =1
       val entry = (loc, records.size, Future {records})
       cacheVectorF = cacheVectorF :+ entry
@@ -317,7 +325,7 @@ class RecordCache2(name : String) {
 }
 
 //edit singleFile for test -> test well
-class SingleFile(name : String) extends IBigFile {
+class SingleFilePreFetch(name : String) extends IBigFile {
 
 
   val raf = new RandomAccessFile(name, "r")
@@ -387,7 +395,7 @@ class SingleFile(name : String) extends IBigFile {
 }
 
 //origin SingleFile
-class SingleFile2(name : String) extends IBigFile {
+class SingleFile(name : String) extends IBigFile {
 
 
   val raf = new RandomAccessFile(name, "r")
@@ -569,6 +577,8 @@ class AppendOutputFile(outputPath: String) {
     new SingleFile(outputPath)
   }
 
+
+
 }
 
 class BigOutputFile(outputPath: String) extends  IOutputFile {
@@ -602,6 +612,9 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
 
   def toInputFile : IBigFile = {
     new SingleFile(outputPath)
+  }
+  def toInputFilePreFetch : IBigFile = {
+    new SingleFilePreFetch(outputPath)
   }
 
   def flush() = {
