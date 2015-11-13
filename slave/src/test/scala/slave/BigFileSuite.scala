@@ -61,6 +61,12 @@ class BigFileSuite extends FunSuite {
     assert(readRecords(0)._1.length == 10)
     assert(readRecords(0)._2.length == 90)
     assert(records == readRecords)
+    val singleFile : IBigFile= output.toInputFile
+    //val s1 = output.toInputFile.getRecordDirect(i)
+    val s = singleFile.getRecord(1)
+    println("singleFile getrecord(1) :" + s._1)
+
+
   }
 
   test("File write - many record - appendRecord") {
