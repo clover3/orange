@@ -53,6 +53,7 @@ class ByteConsumer {
     if( init.isCompleted ){
       if(totalFileNum == FileTotalLen )
       {
+        println("I'm finished  (ip, totalFileNum, FileTotalLen) : " + sockIp)
         p.complete( Success(outBigfileList.map(_._2)) )
       }
     }
@@ -113,14 +114,18 @@ trait newShuffleSock {
   def sendSize(ip: String, size: Int) : Unit
   val promise : Promise[Unit]
   def death() : Unit
+  var writeVal = 0
   def write(cur_sock: Channel, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
+    writeVal += 1
+    println("call write : " + writeVal)
     cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(st, ed).toMyBuffer))
   }
   def writeSize(cur_sock : Channel, size:Int) : ChannelFuture = {
-
-    val buf = Unpooled.directBuffer(4)
-    buf.writeInt(size)
-    cur_sock.writeAndFlush(buf)
+    println("writeSize 1")
+    val bytearray = ByteBuffer.allocate(4).putInt(size).array
+    val buf = Unpooled.wrappedBuffer(bytearray)
+    println("writeSize 2")
+    cur_sock.write(buf)
   }
 
 }
@@ -162,15 +167,16 @@ object newShuffleSock {
 
 
     def getSock(ip: String): Future[Channel] = ip2Sock(ip)
-
     def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
       val sock = Await.result(getSock(ip),Duration.Inf)
       write(sock, file, st, ed).sync()
     }
 
     def sendSize(ip : String, size : Int) = {
+      println("before getsock")
       val sock = Await.result(getSock(ip), Duration.Inf)
-      writeSize(sock, size).sync()
+      writeSize(sock, size)
+      println("writeSize : " + size)
     }
 
     def death() = {

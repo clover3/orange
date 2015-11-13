@@ -16,7 +16,8 @@ import scala.concurrent.{Promise, Future, Await}
 import scala.io._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.util.Success
+import scala.util.{Success, Failure}
+
 
 
 package object slave {
@@ -46,24 +47,37 @@ package object slave {
         def f (t:(String,(Int,Int))) = (t._1, t._2._1, t._2._2)
         result map f
       }
+      println("===========            splitAndSend          ================")
+      println("sortedFile : " + sortedFile)
+
       val fileLen = sortedFile.size
       val sendIpList = ipList.filter { _ != myIp}
-      val expectedSendLen = fileLen * sendIpList.size
+      var sendData = 0;
+      println("===========            sendIpList map       ================")
+      println("sendIpList : " + sendIpList)
       sendIpList map { ip => slaveSock.sendSize(ip, fileLen) }
+      println("===========            sendIpList map end   ================")
       val flist = sortedFile map  {
         futureFile => {
           val p = Promise[Unit]()
-          futureFile onSuccess {
-            case file =>
+          futureFile onComplete {
+            case Success(file) =>
               val splitList : List[(String, Int, Int)] = splitFile(file, partitions).filter{ _._1 != myIp}
+              println("splitList : " + splitList)
               splitList map {data =>
                   slaveSock.sendData(data._1, file, data._2, data._3);
+                  sendData += 1
+                  println("I send data" + sendData)
               }
               p.complete(Success())
+            case Failure(e) => {
+              println("I'm in fail" + e.getMessage)
+            }
           }
           p.future
         }
       }
+      println("flist : " + flist)
       val l2 = ipList.filter(_ != myIp)
       (l2,all(flist))
     }
