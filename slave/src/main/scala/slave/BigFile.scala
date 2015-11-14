@@ -332,6 +332,7 @@ class RecordCache {
 //edit singleFile for test -> test well
 class RecordCache2(name : String) {
 
+  val blockSize = 1000
   val maxEntry = 50
   type CacheEntry = (Int, Int, Vector[Record])
   type CacheEntryF = (Int, Int, Future[Vector[Record]])
@@ -355,7 +356,7 @@ class RecordCache2(name : String) {
   //File read func
   def readFile(pos:Int ,loc:Int) : Vector[Record]={
     raf.seek(pos.toLong)
-    val nRecord = min(400, numOfRecords-loc)
+    val nRecord = min(blockSize, numOfRecords-loc)
     val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
     raf.readFully(buf)
     val seq = for( i <- Range(0, nRecord) ) yield {
@@ -499,21 +500,13 @@ class SingleFilePreFetch(name : String) extends IBigFile {
   }
 
   def getRecordDirect(i: Int): Record = {
-
-    //define randomAccessFile just for read("r)
-
-    //set Offset for key or value
-    //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
-    //    10 - 32 - 52
     val keyOffset: Long = 10
     val totalOffset: Long = 100
     val lineSize: Int = 100
-    //set position
     val pos: Long = (totalOffset) * i
     raf.seek(pos)
     val buf: Array[Byte] = new Array[Byte](lineSize)
     raf.readFully(buf)
-
 
     val readline = new String(buf.take(100))
     val keyString = readline.take(keyOffset.toInt)
@@ -563,7 +556,7 @@ class ConstFile extends IBigFile{
     lst.toVector
   }
 }
-class VirtualFile( file:IBigFile, st:Int, ed:Int) extends IBigFile {
+class PartialFile( file:IBigFile, st:Int, ed:Int) extends IBigFile {
   def numOfRecords = (ed - st)
   def getRecord(i : Int) :Record = {
     file.getRecord(i + st)

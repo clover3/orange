@@ -41,13 +41,13 @@ class BigFileSuite extends FunSuite {
     for(i <- Range(0,10) ) println(result(i)._1)
   }
 
-  test("File write - few record using appendRecord - modified by kbs"){
+  test("Test for Prefetched read"){
     val fileName = "out_test"
     deleteIfExist(fileName)
     val output : BigOutputFile = new BigOutputFile(fileName)
 
     val constFile = new ConstFile
-    val cn =10000
+    val cn = 1000000
     val records = constFile.getRecords(0,cn)
     println("record size :" + records.size)
     assert(records(0)._1.length == 10)
@@ -55,19 +55,19 @@ class BigFileSuite extends FunSuite {
     for( rec <- records ) output.appendRecord(rec)
     output.close()
     val readRecords = output.toInputFile.getRecords(0,cn)
-    println(readRecords(0)._1)
-    println(readRecords(0)._2)
-    println(readRecords(1)._1)
-    println(readRecords(1)._2)
-    assert(readRecords(0)._1.length == 10)
-    assert(readRecords(0)._2.length == 90)
-    assert(records == readRecords)
+
+    def randomAccess(file:IBigFile, ways:Int, length:Int) = {
+      val waylen = length / ways
+      for( i <- Range(0,ways) ){
+        for( j <- Range(0,waylen))
+          {
+            val s = file.getRecord(i*waylen+j)
+          }
+      }
+    }
 
     val singleFile : IBigFile= output.toInputFilePreFetch
-    val (result1, time) = profile {
-      for (i<-Range(0,cn)){
-        val s = singleFile.getRecord(i)
-      }}
+    val (result1, time) = profile { randomAccess(singleFile, 100, cn)  }
     println("singleFile modified getRecordCache time(ms):" + time)
     val record0= singleFile.getRecord(0)
 
@@ -76,10 +76,7 @@ class BigFileSuite extends FunSuite {
     //println("singleFile getrecord(10000) :" + s2._1)
 
     val singleFile2 :IBigFile = output.toInputFile
-    val (result, time2) = profile {
-      for (i<-Range(0,cn)){
-        val s = singleFile2.getRecord(i)
-      }}
+    val (result2, time2) = profile { randomAccess(singleFile2, 100, cn)  }
     println("singleFile origin getRecordCache time(ms): " + time2 )
     //val s1 = singleFile2.getRecord(10080)
     //println("singleFile getrecord(10000) :" + s1._1)
@@ -201,7 +198,7 @@ class BigFileSuite extends FunSuite {
 
   test("virtual file test") {
     val file = new ConstFile
-    val vfile = new VirtualFile(file, 10, 15)
+    val vfile = new PartialFile(file, 10, 15)
 
     assert(vfile.numOfRecords == 5)
 
