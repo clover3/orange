@@ -26,15 +26,6 @@ class BigFileSuite extends FunSuite {
     assert(rCnt == cnt)
     println("Keys : ")
     for(i <- Range(0,10) ) println(result(i)._1)
-
-    val (result1, time2) = profile {for(i <- Range(0,cnt))yield{
-      input.getRecord(i)
-    }}
-    val resultrecord = result1.toVector
-
-    assert(result ==resultrecord)
-    println("each getRecord - time elapsed(ms) : " + time )
-
   }
 
   test("check file read (ConstFile)"){
