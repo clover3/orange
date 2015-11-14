@@ -392,8 +392,6 @@ class RecordCache2(name : String) {
 
   def moveCacheFToCache(loc:Int)  : Unit= {
 
-
-
     //Await.result(cacheVectorF.find(containF(loc))._3 , Duration.Inf)
     val e = cacheVectorF.head
     val result : CacheEntry = (e._1,e._2, Await.result(e._3,Duration.Inf))

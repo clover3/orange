@@ -157,7 +157,7 @@ class BigFileSuite extends FunSuite {
   }
 
   test("read-write test"){
-    val input: IBigFile = new MultiFile(List("inputdir1", "inputdir2"))
+    val input: IBigFile = new MultiFile(List("inputdir_one"))
     val outpath = "out_test1"
 
     val cnt = input.numOfRecords
@@ -169,8 +169,6 @@ class BigFileSuite extends FunSuite {
 
     val rCnt = records.size
     assert(rCnt == cnt)
-    println("Keys : ")
-    for(i <- Range(0,10) ) println(records(i)._1)
 
     val output: IOutputFile = new BigOutputFile(outpath)
     val (_, time2) = profile {
@@ -184,9 +182,6 @@ class BigFileSuite extends FunSuite {
       output.close()
     }
     println("appendRecord - time elapsed(ms) : " + time2)
-
-
-
   }
 
   test("output empty file"){
@@ -196,7 +191,7 @@ class BigFileSuite extends FunSuite {
     output.toInputFile
   }
 
-  test("virtual file test") {
+  test("partial file test") {
     val file = new ConstFile
     val vfile = new PartialFile(file, 10, 15)
 

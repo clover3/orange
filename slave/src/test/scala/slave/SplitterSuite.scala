@@ -50,7 +50,7 @@ class SplitterSuite extends FunSuite {
     val rs: ResourceChecker = new ResourceChecker()
     val sorter = new MultiThreadSorter(rs,tempDir)
     // operate on
-    val sortedChunks = Await.result(all(sorter.generateSortedChunks(input)), Duration.Inf)
+    val sortedChunks = Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
 
     val intervalList = Splitter.makePartitionsList(sortedChunks.head, partitions)
     intervalList.map(t => println(t))

@@ -15,11 +15,27 @@ class SorterSuite extends FunSuite {
   def profile[R](code: => R, t: Long = System.currentTimeMillis()) = (code, System.currentTimeMillis() - t)
   val pathLocal = List("inputdir1", "inputdir2")
   val pathHDD = List("E:\\Test\\inputdir1","E:\\Test\\inputdir2")
+  val pathHDD_F = List("F:\\Test\\inputdir1","F:\\Test\\inputdir2")
   val pathMultiHDD = List("E:\\Test\\inputdir1","F:\\Test\\inputdir2")
   val tempDir = "temp"
+
   test("Sort Only"){
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathLocal)
+    val rs:ResourceChecker = new ResourceChecker()
+    val sorter = new MultiThreadSorter(rs, tempDir)
+
+    // operate on
+    val (sortedChunks, timeSort) = profile{
+      Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
+    }
+
+    println("sort  time(ms) :"+ timeSort)
+  }
+
+  test("Sort MultiHDD"){
+    //val input: IBigFile = new ConstFile
+    val input: List[IBigFile] = pathMultiHDD.map(d => new MultiFile(List(d)))
     val rs:ResourceChecker = new ResourceChecker()
     val sorter = new MultiThreadSorter(rs, tempDir)
 
@@ -30,6 +46,8 @@ class SorterSuite extends FunSuite {
 
     println("sort  time(ms) :"+ timeSort)
   }
+
+
   test("sorting test - Single+Single") {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathLocal)
@@ -39,7 +57,7 @@ class SorterSuite extends FunSuite {
 
     // operate on
     val (sortedChunks, timeSort) = profile{
-      Await.result(all(sorter.generateSortedChunks(input)), Duration.Inf)
+      Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
     }
     val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
 
@@ -57,7 +75,7 @@ class SorterSuite extends FunSuite {
 
     // operate on
     val (sortedChunks, timeSort) = profile{
-      Await.result(all(sorter.generateSortedChunks(input)), Duration.Inf)
+      Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
     }
     val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
 

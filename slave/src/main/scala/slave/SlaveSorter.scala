@@ -25,7 +25,7 @@ package object sorter {
   val sortedFileName = "sorted"
   // Phase 1 of the sorting process
   trait ChunkSorter {
-    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]]
+    def generateSortedChunks(inputs: List[IBigFile]): List[Future[IBigFile]]
 
     //  TODO :[Optimization] change sort to in-memory sort.
     def sort(data: Vector[Record]) : Vector[Record] = data.sortBy(rec => rec._1)
@@ -221,6 +221,8 @@ package object sorter {
       }
     }
 
+
+
     //inFile:IBigFile, outfileName:String, st:Int, ed:Int
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
@@ -241,26 +243,42 @@ package object sorter {
       }
     }
 
-    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
+    def schedule2(source : List[IndexedSeq[(IBigFile, String, Int, Int)]]): List[(IBigFile, String, Int, Int)] = {
+      source.flatten
+    }
+
+    def schedule(source : List[IndexedSeq[(IBigFile, String, Int, Int)]]): List[(IBigFile, String, Int, Int)] = {
+      val headList = source.flatMap(l => l.headOption)
+      val tailSource = source.flatMap(l => if(l.tail == Nil) None else Option(l.tail))
+      val tailList = if( tailSource == Nil ) Nil else schedule(tailSource)
+      headList ::: tailList
+    }
+
+    def generateSortTasks(files:List[IBigFile]) = {
       val mem = rs.remainingMemory
       val blockSize = getBlockSize(mem)
       println("mem :"+mem + " blockSize:"+ blockSize)
-      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
-      inputSeq.map(t => Future{read_sort_write(t)}).toList
+
+      val namePrefix = "sortedChunk"
+      val names = for( i <- Range(0,files.size)) yield { namePrefix+ i + "-"}
+      val inputs = files.zip(names)
+      inputs.map( input => divideChunk(input._1, blockSize, input._2))
+    }
+
+    def generateSortedChunks(files: List[IBigFile]): List[Future[IBigFile]] = {
+      val tasks:List[IndexedSeq[(IBigFile, String, Int, Int)]] = generateSortTasks(files)
+      val scheduledTask: List[(IBigFile, String, Int, Int)] = schedule(tasks)
+      val completedTasks = scheduledTask.map(t => read_sort_write(t))
+      completedTasks.map( t=> Future{t}).toList
     }
   }
 
   class MultiThreadSorter(val rs2: ResourceChecker, override val tempDir : String) extends SingleThreadSorter(rs2, tempDir){
     override
-    def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
-      val mem = rs.remainingMemory
-      val blockSize = getBlockSize(mem / 4)
-      println("mem :"+mem + " blockSize:"+ blockSize)
-      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
-      val lstFutureFile : List[Future[IBigFile]]= {
-        inputSeq.map( t => Future{read_sort_write(t)}).toList
-      }
-      lstFutureFile
+    def generateSortedChunks(files: List[IBigFile]): List[Future[IBigFile]] = {
+      val tasks:List[IndexedSeq[(IBigFile, String, Int, Int)]] = generateSortTasks(files)
+      val tasksScheduled = schedule(tasks)
+      tasksScheduled.map( t => Future{read_sort_write(t)} ).toList
     }
   }
 
@@ -310,12 +328,13 @@ package object sorter {
       }
     }
 
-    override def generateSortedChunks(input: IBigFile): List[Future[IBigFile]] = {
+    override def generateSortedChunks(inputs: List[IBigFile]): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
       println("Mem : " + mem)
       val blockSize = getBlockSize(mem)
-      val inputSeq = divideChunk(input, blockSize, "sortedChunk")
-      inputSeq.map(t => Future{sortChunk(t)}).toList
+      val tasks = inputs.map(input => divideChunk(input, blockSize, "sortedChunk"))
+      val tasksScheduled = schedule(tasks)
+      tasksScheduled.map( t => Future{sortChunk(t)} ).toList
     }
   }
 
@@ -323,7 +342,7 @@ package object sorter {
   class SlaveSorter {
     def run(inputDirs: List[String], tempDir : String): List[Future[IBigFile]] = {
       // initializing structs
-      val input: IBigFile = new MultiFile(inputDirs)
+      val input: List[IBigFile] = inputDirs.map(d => new MultiFile(List(d)))
       var d = new File(tempDir)
       if (!d.exists)
         d.mkdir()
