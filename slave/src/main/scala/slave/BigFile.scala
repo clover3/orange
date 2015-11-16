@@ -752,6 +752,7 @@ object Splitter {
     val indexList = getIndexList(keyList, 0, file.numOfRecords)
     val startList = indexList.dropRight(1)
     val endList = indexList.tail
-    startList.zip(endList)
+    val result = startList.zip(endList)
+    result
   }
 }

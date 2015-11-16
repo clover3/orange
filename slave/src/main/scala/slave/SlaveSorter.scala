@@ -145,8 +145,7 @@ package object sorter {
       MergeSimple(sortedChunks)
     }
 
-    def MergeSimple(sortedChunks: List[IBigFile]): IBigFile =
-    {
+    def MergeSimple(sortedChunks: List[IBigFile]): IBigFile = {
       def getHead( file:IBigFile ) : Record = file.getRecord(0)
       val output : BigOutputFile = new BigOutputFile(sortedFileName)
 
