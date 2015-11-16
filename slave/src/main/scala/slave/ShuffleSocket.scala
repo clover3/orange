@@ -80,18 +80,13 @@ trait ShuffleSocket {
   lazy val (serverList, cList): (List[(String, Int)], List[(String, Int)]) = ipPortList.span(_._1 != myIp)
   lazy val myIpPort: (String, Int) = cList.head
   lazy val clientList = cList.tail
-
   val buf: ByteBuffer = ByteBuffer.allocate(100 * 10000) // I don't know how many I can use buffer...
-
   lazy val consumerPromises : Map[String, Promise[ByteConsumer]] = {
     val res : Map[String, Promise[ByteConsumer]]= (for( ip <- serverList ) yield { (ip._1 ,Promise[ByteConsumer]()) }).toMap
     val res2 : Map[String, Promise[ByteConsumer]] = (for (ip <- clientList) yield { (ip._1, Promise[ByteConsumer]()) }).toMap
     res ++ res2
   }
-
-
   val tempDir : String
-
   def dataFuture(ip:String): Future[List[BigOutputFile]] = {
     println("I will connect "+ip)
     val csFuture = consumerPromises(ip).future
@@ -112,7 +107,6 @@ trait newShuffleSock {
   def sendSize(ip: String, size: Int) : Unit
   val promise : Promise[Unit]
   def death() : Unit
-
   def write(cur_sock: Channel, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
 
     cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(st, ed).toMyBuffer))
@@ -124,11 +118,9 @@ trait newShuffleSock {
 
     cur_sock.write(buf)
   }
-
 }
 
 object newShuffleSock {
-
   def apply(partitions: Partitions, tempDir : String) = new newShuffleSock {
     val ipList = partitions.map { _._1 }
     val slaveServerSock = new SlaveServerSock(ipList, tempDir)
@@ -138,10 +130,7 @@ object newShuffleSock {
     serverThread.start()
     clientThread.start()
     val promise = Promise[Unit]()
-
-
     def ip2Sock: Map[String, Future[Channel]] = slaveServerSock.ip2Sock ++ slaveClientSock.ip2Sock
-
 
     def recvData(ip: String): List[BigOutputFile] = {
       val f = {
@@ -154,22 +143,17 @@ object newShuffleSock {
           slaveClientSock.dataFuture(ip)
         }
       }
-      val a = Await.result(f,Duration.Inf)
-      a
+      Await.result(f,Duration.Inf)
     }
-
-
     def getSock(ip: String): Future[Channel] = ip2Sock(ip)
     def sendData(ip: String, file: IBigFile, st: Int, ed: Int): Unit = {
       val sock = Await.result(getSock(ip),Duration.Inf)
       write(sock, file, st, ed).sync()
     }
-
     def sendSize(ip : String, size : Int) = {
       val sock = Await.result(getSock(ip), Duration.Inf)
       writeSize(sock, size)
     }
-
     def death() = {
       slaveServerSock.death()
       slaveClientSock.death()
