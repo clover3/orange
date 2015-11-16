@@ -48,6 +48,7 @@ package object slave {
           case Success(file) =>
             val splitList : List[(String, Int, Int)] = splitFile(file, partitions).filter{ _._1 != myIp}
             splitList foreach  {data => slaveSock.sendData(data._1, file, data._2, data._3)}
+            println("send data")
             p.complete(Success())
           case Failure(e) => println("I'm in fail " + e.getMessage)
         }

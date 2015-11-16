@@ -198,7 +198,7 @@ package object sorter {
     //50 * 10000
     println("memSize:" + memSize)
     //5000
-    100000
+    327680
     //memSize / 100 / 2
   }
   // continueWith
@@ -348,7 +348,7 @@ package object sorter {
         d.mkdir()
       //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
-      val sorter: ChunkSorter = new SingleThreadSorter(rs, tempDir)
+      val sorter: ChunkSorter = new MultiThreadSorter(rs, tempDir)
       // operate on
       sorter.generateSortedChunks(input)
     }

@@ -729,7 +729,7 @@ class SortedConstFile extends IBigFile{
 
 object Splitter {
   def makePartitionsList(file:IBigFile, partitions : Partitions) : List[(Int,Int)]={
-    val keyList: List[String] = partitions.head._1::partitions.map({p => p._2})
+    val keyList: List[String] = partitions.head._2::partitions.map({p => p._3})
 
     // returns List[index of key in file that is same or bigger than given key]
     def getIndexList(keyList : List[String], st:Int, ed:Int) : List[Int] = {

@@ -37,7 +37,7 @@ class ByteConsumer(val tempDir : String) {
     if (outBigfileList.nonEmpty && startedNewFile)
       records foreach {record => outBigfileList.head._2.appendRecord(record)}
     else {
-      val outBigfile = new BigOutputFile("runiel_is_cute_>_<_" + sockIp +"_" + totalFileNum)
+      val outBigfile = new BigOutputFile(tempDir + "/" + "runiel_is_cute_>_<_" + sockIp +"_" + totalFileNum)
       records foreach {record => outBigfile.appendRecord(record)}
       outBigfileList = (headFileSize,outBigfile)::outBigfileList
       startedNewFile = true
@@ -46,6 +46,17 @@ class ByteConsumer(val tempDir : String) {
       outBigfileList.head._2.close()
       startedNewFile = false
       totalFileNum += 1
+      print("totalFile " + sockIp + " ||")
+      for(i <- 0 until (FileTotalLen + 1))
+      {
+        if(i < totalFileNum)
+          print("=")
+        else if (i == totalFileNum)
+          print(">")
+        else
+          print(" ")
+      }
+      println("||")
     }
 
     if( init.isCompleted ){
