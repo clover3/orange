@@ -284,6 +284,12 @@ class SingleFile(name : String) extends IBigFileWithCache {
   }
 }
 
+class ConcatFile( files : List[IBigFile]) extends IBigFile {
+  def numOfRecords: Int = ???
+  def getRecord(i: Int): Record = ???
+  def getRecords(st: Int, ed: Int): Vector[Record] = ???
+}
+
 class RecordCache {
   val maxEntry = 50
   type CacheEntry = (Int, Int, Vector[Record])
@@ -537,7 +543,7 @@ class SingleFilePreFetch(name : String) extends IBigFile {
 }
 class ConstFile extends IBigFile{
   // returns total number of records in this file
-  def numOfRecords: Int = 327680 * 2
+  def numOfRecords: Int = 327680 * 5
 
   // get i'th record
   def getRecord(i: Int): Record = {
@@ -728,9 +734,7 @@ class SortedConstFile extends IBigFile{
 
 
 object Splitter {
-  def makePartitionsList(file:IBigFile, partitions : Partitions) : List[(Int,Int)]={
-    val keyList: List[String] = partitions.head._2::partitions.map({p => p._3})
-
+  def makePartitionsListFromKey(file:IBigFile, keyList: List[String]) : List[(Int,Int)]={
     // returns List[index of key in file that is same or bigger than given key]
     def getIndexList(keyList : List[String], st:Int, ed:Int) : List[Int] = {
       if( keyList.isEmpty )
@@ -754,5 +758,10 @@ object Splitter {
     val endList = indexList.tail
     val result = startList.zip(endList)
     result
+  }
+
+  def makePartitionsList(file:IBigFile, partitions : Partitions) : List[(Int,Int)]={
+    val keyList: List[String] = partitions.head._2::partitions.map({p => p._3})
+    makePartitionsListFromKey(file, keyList)
   }
 }
