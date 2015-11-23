@@ -73,6 +73,11 @@ package object sorter {
     }
   }
 
+  trait MergePQ {
+    def getMin(): Record
+    def isEmpty: Boolean
+  }
+
   // Phase 2 of the sorting process
   trait ChunkMerger {
     def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile
@@ -103,11 +108,10 @@ package object sorter {
         }
       }
 
-      class MergePQ(sortedChunks :List[IBigFile]) {
-        object EntryOrdering extends Ordering[(Record,Int)] {
-          def compare(a:(Record,Int), b:(Record,Int)) = b._1._1 compare a._1._1
+      class SimplePQ(sortedChunks :List[IBigFile]) extends MergePQ{
+        object EntryOrdering extends Ordering[(Record, Int)] {
+          def compare(a: (Record, Int), b: (Record, Int)) = b._1._1 compare a._1._1
         }
-
         val priorityQueue : mutable.PriorityQueue[(Record,Int)] = new mutable.PriorityQueue[(Record,Int)]()(EntryOrdering)
         val dataBag = new DataBag(sortedChunks.toVector)
         val contructor = {
@@ -131,7 +135,7 @@ package object sorter {
         def isEmpty : Boolean = priorityQueue.isEmpty
       }
 
-      val pq : MergePQ = new MergePQ(sortedChunks)
+      val pq : MergePQ = new SimplePQ(sortedChunks)
       while( !pq.isEmpty )
       {
         output.appendRecord(pq.getMin())
