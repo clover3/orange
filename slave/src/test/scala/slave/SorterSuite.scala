@@ -95,6 +95,7 @@ class SorterSuite extends FunSuite {
     val (sortedChunks, timeSort) = profile{
       Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
     }
+    println("Generated " + sortedChunks.size + " sorted chunks")
     val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
 
     println("sort  time(ms) :"+ timeSort)

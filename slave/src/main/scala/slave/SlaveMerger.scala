@@ -31,9 +31,11 @@ package object merger {
   class SingleThreadMerger extends ChunkMerger {
     var index = 0
     def getOutName(): String = {
-      val name = sortedFileName+index
-      index=index+1
-      name
+      this.synchronized {
+        index = index + 1
+        val name = sortedFileName + index
+        name
+      }
     }
 
     def MergeWithPQ(sortedChunks: List[IBigFile]): IBigFile = {
@@ -69,7 +71,6 @@ package object merger {
         val priorityQueue: mutable.PriorityQueue[(Record, Int)] = new mutable.PriorityQueue[(Record, Int)]()(EntryOrdering)
         val dataBag = new DataBag(sortedChunks.toVector)
         val contructor = {
-          println("Contructor Executed")
           for (i <- Range(0, sortedChunks.size)) {
             val rec: Option[Record] = dataBag.getItem(i)
             rec match {
@@ -152,21 +153,28 @@ package object merger {
 
   class DualThreadMerger extends ChunkMerger {
     def divide(chunks: List[IBigFile], num: Int): List[List[IBigFile]] = {
-      val keyLimitMin = 0.toChar.toString * 10
-      val keyLimitMax = 126.toChar.toString * 10
       def rearrange[A](listList : List[List[A]]) : List[List[A]] = {
         if( listList.head == Nil)
-          List.fill(num)(Nil)
+          Nil
         else {
-          val heads = listList.map(l => l.head)
-          val tails = listList.map(l => l.tail)
+          val heads : List[A]  = listList.map(l => l.head)
+          val tails : List[List[A]] = listList.map(l => l.tail)
           heads :: rearrange(tails)
         }
       }
-      val sample = chunks.head
-      val blockSize = sample.numOfRecords / num
-      val midKeys:List[String] = (for(i <- 1 until num ) yield { sample.getRecord(i*blockSize)._1 }).toList
-      val keys:List[String] = keyLimitMin +: keyLimitMax +: midKeys
+
+      def sampling(sample: IBigFile, num: Int) : List[String] = {
+        val keyLimitMin = 0.toChar.toString * 10
+        val keyLimitMax = 126.toChar.toString * 10
+        val blockSize = sample.numOfRecords / num
+        val midKeys: List[String] = (for (i <- 1 until num) yield {
+          sample.getRecord(i * blockSize)._1
+        }).toList
+        keyLimitMin +: keyLimitMax +: midKeys
+      }
+
+      val keys: List[String] = sampling(chunks.head, num)
+
       def split(file :IBigFile) : List[IBigFile] = {
         val intervals = Splitter.makePartitionsListFromKey(file, keys)
         intervals.map(t => new PartialFile(file,t._1, t._2) )
