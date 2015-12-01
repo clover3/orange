@@ -28,9 +28,6 @@ trait IBigFile {
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
   def getRecords(st: Int, ed: Int): Vector[Record]
-
-
-
 }
 
 trait IBigFileWithCache extends IBigFile{
@@ -51,8 +48,6 @@ trait IBigFileWithCache extends IBigFile{
   def getRecordDirect(i: Int): Record
 }
 
-
-// I add argument inputDirs(:List[String])
 class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
 
   ///////////////////////////////////
@@ -326,10 +321,7 @@ class RecordCache {
 
 }
 
-
-
 //////////////impelemented to test or improve performance,( no need for program execution!)//////////
-//edit singleFile for test -> test well
 class RecordCache2(name : String) {
 
   val blockSize = 1000
@@ -580,7 +572,6 @@ trait IOutputFile {
   def close()
 }
 
-
 class AppendOutputFile(outputPath: String) {
   val dummyRec = ("", "")
   val cacheSize = 1000
@@ -626,7 +617,6 @@ class AppendOutputFile(outputPath: String) {
 
 
 }
-
 
 class BigOutputFile(outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
