@@ -2,6 +2,7 @@
 import java.net._
 
 import common.typedef._
+import slave.merger.{SingleThreadMerger, ChunkMerger}
 import slave.sorter.SlaveSorter
 import slave.future._
 import slave.Sampler._
@@ -72,11 +73,17 @@ package object slave {
       slaveSock.death()
     }
 
+    def merge(fileList : List[IBigFile]) : IBigFile = {
+      val merger : ChunkMerger = new SingleThreadMerger()
+      merger.MergeBigChunk(fileList)
+    }
+
     def run() = {
       val partitions     : Partitions                   = getPartition
       val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir)
       val sortedFile     : List[Future[IBigFile]]       = sort
       val netSortedFiles : List[IBigFile]               = shuffle(sortedFile, partitions, slaveSock)
+      val sortedResult   : IBigFile                     = merge(netSortedFiles)
     }
   }
 }

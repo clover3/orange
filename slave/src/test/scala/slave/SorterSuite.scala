@@ -1,6 +1,7 @@
 package slave
 
 import org.scalatest.FunSuite
+import slave.merger.{DualThreadMerger, ChunkMerger, SingleThreadMerger}
 import slave.sorter._
 import slave.future._
 
@@ -83,6 +84,23 @@ class SorterSuite extends FunSuite {
     println("merge time(ms) :"+ timeMerge)
   }
 
+  test("sorting test - Single+Multi") {
+    //val input: IBigFile = new ConstFile
+    val input: IBigFile = new MultiFile(pathLocal)
+    val rs:ResourceChecker = new ResourceChecker()
+    val merger: ChunkMerger = new DualThreadMerger()
+    val sorter = new SingleThreadSorter(rs, tempDir)
+
+    // operate on
+    val (sortedChunks, timeSort) = profile{
+      Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
+    }
+    println("Generated " + sortedChunks.size + " sorted chunks")
+    val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
+
+    println("sort  time(ms) :"+ timeSort)
+    println("merge time(ms) :"+ timeMerge)
+  }
 
 }
 
