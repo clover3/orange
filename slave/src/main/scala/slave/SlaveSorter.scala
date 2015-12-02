@@ -3,6 +3,7 @@ package slave
 import slave.Record._
 import slave.future._
 import slave.util.profile
+import slave.SlaveConfig._
 
 import scala.annotation.tailrec
 import scala.async.Async.{async, await}
@@ -72,14 +73,6 @@ package object sorter {
     }
   }
 
-
-  def getBlockSize(memSize :Int) : Int = {
-    //50 * 10000
-    println("memSize:" + memSize)
-    //5000
-    327680
-    //memSize / 100 / 2
-  }
   // continueWith
 
   // DivideChunk: (IBigFile,blockSize) -> (IBigFile,st,ed)
@@ -133,9 +126,9 @@ package object sorter {
       headList ::: tailList
     }
 
-    def generateSortTasks(files:List[IBigFile]) = {
+    def generateSortTasks(files:List[IBigFile])(implicit config:Config) = {
       val mem = rs.remainingMemory
-      val blockSize = getBlockSize(mem)
+      val blockSize = config.sortBlockSize
       println("mem :"+mem + " blockSize:"+ blockSize)
 
       val namePrefix = "sortedChunk"
@@ -210,7 +203,7 @@ package object sorter {
     override def generateSortedChunks(inputs: List[IBigFile]): List[Future[IBigFile]] = {
       val mem = rs.remainingMemory
       println("Mem : " + mem)
-      val blockSize = getBlockSize(mem)
+      val blockSize = 327680
       val tasks = inputs.map(input => divideChunk(input, blockSize, "sortedChunk"))
       val tasksScheduled = schedule(tasks)
       tasksScheduled.map( t => Future{sortChunk(t)} ).toList

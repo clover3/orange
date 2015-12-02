@@ -1,0 +1,8 @@
+327680
+4
+
+
+# README #
+First line : sort memory block size
+Second line : number of processor to use in multi-thread merge process
+Remaining lines are ignored.

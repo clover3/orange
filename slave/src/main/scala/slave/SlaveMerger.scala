@@ -1,5 +1,6 @@
 package slave
 
+import slave.SlaveConfig.Config
 import slave.future._
 import slave.merger._
 import slave.{ConcatFile, BigOutputFile, IBigFile}
@@ -152,7 +153,8 @@ package object merger {
   }
 
   class DualThreadMerger extends ChunkMerger {
-    def divide(chunks: List[IBigFile], num: Int): List[List[IBigFile]] = {
+    def divide(chunks: List[IBigFile])(implicit config:Config): List[List[IBigFile]] = {
+      val num = config.numMergeThread
       def rearrange[A](listList : List[List[A]]) : List[List[A]] = {
         if( listList.head == Nil)
           Nil
@@ -184,7 +186,7 @@ package object merger {
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
       val merger = new SingleThreadMerger;
-      val lst: List[List[IBigFile]] = divide(sortedChunks, 2)
+      val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)
       })
