@@ -5,9 +5,11 @@ import java.nio.channels._
 import common.typedef._
 
 import scala.Array._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Sorting}
 import scala.concurrent.ExecutionContext.Implicits.global
+import master.future._
 
 package object master {
   
@@ -97,11 +99,11 @@ package object master {
         val sip = (Iplist.find(_._2 == s))
         for (sopt <- sip) yield {
           if (sockPromises(sopt._1).isCompleted) {
-            buffer.put("1".getBytes())
+            buffer.put("S".getBytes())
             sSock.write(buffer)
           }
           else {
-            buffer.put("0".getBytes())
+            buffer.put("U".getBytes())
             sSock.write(buffer)
           }
           throw new Exception("strange string is coming from" + sSock)
@@ -114,7 +116,6 @@ package object master {
         case(id, slave) => Future {
           def loopfunction(id: slaveID, sock: SocketChannel): Unit = {
             if (finishPromises(id).isCompleted) {
-
             }
             else {
               recvSlaveRequest(id, sock)
@@ -124,6 +125,7 @@ package object master {
           loopfunction(id, slave.sock)
         }
       }
+      Await.result(all(fList), Duration.Inf)
     }
 
     // comment

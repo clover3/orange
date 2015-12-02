@@ -35,14 +35,11 @@ import scala.util.Success
       buffer.clear()
       sock.read(buffer)
       val s = buffer.get(0).toString
-      if (s == "49") {
+      if (s == "83") {
         ok.complete(Success(()))
       }
-      else if (s == "48") {
-        checkMasterRequest(ip, ok)
-      }
       else {
-        throw new Exception("some strange string is coming from master : " + s)
+        checkMasterRequest(ip, ok)
       }
     }
 

@@ -358,7 +358,7 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket
       }
     }
 
-    socket.sendok(p)
+   // socket.sendok(p)
   }
 }
 
