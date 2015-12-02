@@ -18,6 +18,7 @@ class SorterSuite extends FunSuite {
   val pathHDD = List("E:\\Test\\inputdir1","E:\\Test\\inputdir2")
   val pathHDD_F = List("F:\\Test\\inputdir1","F:\\Test\\inputdir2")
   val pathMultiHDD = List("E:\\Test\\inputdir1","F:\\Test\\inputdir2")
+  val pathServerBig = List("/scratch1/Orange/inputdir1")
   val tempDir = "temp"
 
   test("Sort Only"){
@@ -84,12 +85,30 @@ class SorterSuite extends FunSuite {
     println("merge time(ms) :"+ timeMerge)
   }
 
-  test("sorting test - Single+Multi") {
+  test("Test:Single+Multi") {
     //val input: IBigFile = new ConstFile
-    val input: IBigFile = new MultiFile(pathLocal)
+    val input: IBigFile = new MultiFile(pathServerBig)
     val rs:ResourceChecker = new ResourceChecker()
     val merger: ChunkMerger = new DualThreadMerger()
     val sorter = new SingleThreadSorter(rs, tempDir)
+
+    // operate on
+    val (sortedChunks, timeSort) = profile{
+      Await.result(all(sorter.generateSortedChunks(List(input))), Duration.Inf)
+    }
+    println("Generated " + sortedChunks.size + " sorted chunks")
+    val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
+
+    println("sort  time(ms) :"+ timeSort)
+    println("merge time(ms) :"+ timeMerge)
+  }
+
+  test("Test:Multi+Multi"){
+    //val input: IBigFile = new ConstFile
+    val input: IBigFile = new MultiFile(pathServerBig)
+    val rs:ResourceChecker = new ResourceChecker()
+    val merger: ChunkMerger = new DualThreadMerger()
+    val sorter = new MultiThreadSorter(rs, tempDir)
 
     // operate on
     val (sortedChunks, timeSort) = profile{

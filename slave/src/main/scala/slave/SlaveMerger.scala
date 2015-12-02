@@ -175,7 +175,10 @@ package object merger {
         keyLimitMin +: keyLimitMax +: midKeys
       }
 
+      println("divide ENTRY")
+      println("divide -sampling")
       val keys: List[String] = sampling(chunks.head, num)
+      println("divide -rearrange")
 
       def split(file :IBigFile) : List[IBigFile] = {
         val intervals = Splitter.makePartitionsListFromKey(file, keys)
