@@ -631,7 +631,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     deleteIfExist(outputPath)
     new RandomAccessFile(outputPath, "rw");
   }
-  var lastPos = 0
+  var lastPos:Long = 0
   var size = 0
 
   def setRecords(records: Vector[Record]): Future[Unit] = Future{
@@ -679,10 +679,10 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
 
   private def appendRecords(records :Vector[Record]) : Unit = {
     val filesize = memoryMappedFile.length()
-    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, lastPos + records.size * 100);
-    out.position(lastPos)
+    val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, lastPos , records.size * 100);
+    out.position(0)
     writeToBuf(out, records)
-    lastPos = out.position()
+    lastPos = lastPos + records.size * 100
   }
 
 
