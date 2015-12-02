@@ -80,7 +80,7 @@ package object slave {
 
     def run() = {
       val partitions     : Partitions                   = getPartition
-      val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir)
+      val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir, socket)
       val sortedFile     : List[Future[IBigFile]]       = sort
       val netSortedFiles : List[IBigFile]               = shuffle(sortedFile, partitions, slaveSock)
       val sortedResult   : IBigFile                     = merge(netSortedFiles)

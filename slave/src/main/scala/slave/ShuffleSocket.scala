@@ -15,6 +15,8 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
 import slave.Record._
 import common.typedef._
+import slave.socket.PartitionSocket
+import slave.future._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -81,8 +83,10 @@ class ByteConsumer(val tempDir : String) {
 
 trait ShuffleSocket {
   val ipList: List[String]
+  val socket: PartitionSocket
   lazy val slaveNum: Int = ipList.length
   var basePort: Int = 5000
+  val p = Promise[Unit]()
   lazy val ipPortList: List[(String, Int)] = ipList.map { ip: String => {
     basePort = basePort + 1; (ip, basePort)
   }
@@ -132,11 +136,11 @@ trait newShuffleSock {
 }
 
 object newShuffleSock {
-  def apply(partitions: Partitions, tempDir : String) = new newShuffleSock {
+  def apply(partitions: Partitions, tempDir : String, socket : PartitionSocket) = new newShuffleSock {
     val ipList = partitions.map { _._1 }
-    val slaveServerSock = new SlaveServerSock(ipList, tempDir)
+    val slaveServerSock = new SlaveServerSock(ipList, tempDir, socket)
     val serverThread = new Thread(slaveServerSock)
-    val slaveClientSock = new SlaveClientSock(ipList, tempDir)
+    val slaveClientSock = new SlaveClientSock(ipList, tempDir, socket)
     val clientThread = new Thread(slaveClientSock)
     serverThread.start()
     clientThread.start()
@@ -305,7 +309,7 @@ class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInbou
 }
 
 /* I need one serverSock.. (maybe..?) */
-class SlaveServerSock(val ipList: List[String], val tempDir : String) extends ShuffleSocket with Runnable {
+class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- serverList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -353,6 +357,8 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String) extends Sh
         childGroup.shutdownGracefully()
       }
     }
+
+    socket.sendok(p)
   }
 }
 
@@ -373,7 +379,7 @@ class myClientHandler(c: SocketChannel, byteConsumer: ByteConsumer) extends Chan
 }
 
 /* I need many slaveSock... (maybe..?) */
-class SlaveClientSock(val ipList: List[String], val tempDir : String) extends ShuffleSocket with Runnable {
+class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- clientList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -401,15 +407,24 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String) extends Sh
             }
           })
 
-        val clist = for (ip <- clientList) yield {
-          val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
-          val ipStr = ip._1
-          val c = cf.channel()
-          sockPromises(ipStr).complete(Success(c))
-          c
+
+
+        val cflist = for (ip <- clientList) yield {
+          Future {
+            val p: Promise[Unit] = Promise[Unit]()
+            socket.checkMasterRequest(ip._1, p)
+            Await.result(p.future, Duration.Inf)
+            val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
+            val ipStr = ip._1
+            val c = cf.channel()
+            sockPromises(ipStr).complete(Success(c))
+            c
+          }
         }
 
-        
+        socket.sendfinish(p.future)
+
+        val clist = Await.result(all(cflist), Duration.Inf)
 
         for (cf <- clist ) {
           cf.closeFuture().sync()
