@@ -1,8 +1,7 @@
-package master
+package common
 
-import scala.concurrent.{Await, Promise, ExecutionContext, Future}
-import scala.util.{Success, Failure}
-import scala.async.Async.{async, await}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 
 package object future {
@@ -33,5 +32,4 @@ package object future {
     }
     p.future
   }
-
 }

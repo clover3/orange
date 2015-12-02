@@ -1,7 +1,7 @@
 package slave
+import common.future._
 
 import slave.SlaveConfig.Config
-import slave.future._
 import slave.merger._
 import slave.{ConcatFile, BigOutputFile, IBigFile}
 import slave.Record._

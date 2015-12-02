@@ -2,9 +2,9 @@
 import java.net._
 
 import common.typedef._
+import common.future._
 import slave.merger.{SingleThreadMerger, ChunkMerger}
 import slave.sorter.SlaveSorter
-import slave.future._
 import slave.Sampler._
 import slave.socket._
 

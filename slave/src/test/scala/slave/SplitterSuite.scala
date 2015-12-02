@@ -1,9 +1,9 @@
 package slave
 
 import common.typedef.{Partition, Partitions}
+import common.future._
 import org.scalatest.FunSuite
 import slave.Sampler.SlaveSampler
-import slave.future._
 import slave.sorter._
 import slave.util._
 import slave.socket.PartitionSocket

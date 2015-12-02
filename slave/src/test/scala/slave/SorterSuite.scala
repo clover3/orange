@@ -1,9 +1,9 @@
 package slave
 
 import org.scalatest.FunSuite
+import common.future._
 import slave.merger.{DualThreadMerger, ChunkMerger, SingleThreadMerger}
 import slave.sorter._
-import slave.future._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await

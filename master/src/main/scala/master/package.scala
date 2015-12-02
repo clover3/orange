@@ -3,13 +3,13 @@ import java.nio._
 import java.nio.channels._
 
 import common.typedef._
+import common.future._
 
 import scala.Array._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Sorting}
 import scala.concurrent.ExecutionContext.Implicits.global
-import master.future._
 
 package object master {
   

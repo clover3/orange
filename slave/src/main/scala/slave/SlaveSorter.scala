@@ -1,7 +1,8 @@
 package slave
 
+import common.future._
+
 import slave.Record._
-import slave.future._
 import slave.util.profile
 import slave.SlaveConfig._
 

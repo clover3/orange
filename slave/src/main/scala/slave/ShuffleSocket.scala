@@ -15,8 +15,8 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
 import slave.Record._
 import common.typedef._
+import common.future._
 import slave.socket.PartitionSocket
-import slave.future._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
