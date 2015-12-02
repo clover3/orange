@@ -130,7 +130,8 @@ package object sorter {
     def generateSortTasks(files:List[IBigFile])(implicit config:Config) = {
       val mem = rs.remainingMemory
       val blockSize = config.sortBlockSize
-      println("mem :"+mem + " blockSize:"+ blockSize)
+      println("remaining memory :"+mem + " blockSize:"+ blockSize)
+      println("Supporterable threads : " + mem / ( blockSize * 100 * 2))
 
       val namePrefix = "sortedChunk"
       val names = for( i <- Range(0,files.size)) yield { namePrefix+ i + "-"}
@@ -205,7 +206,8 @@ package object sorter {
       val mem = rs.remainingMemory
       println("Mem : " + mem)
       val blockSize = 327680
-      val tasks = inputs.map(input => divideChunk(input, blockSize, "sortedChunk"))
+      def outPath(implicit config:Config) = config.tempPath
+      val tasks = inputs.map(input => divideChunk(input, blockSize, outPath))
       val tasksScheduled = schedule(tasks)
       tasksScheduled.map( t => Future{sortChunk(t)} ).toList
     }
