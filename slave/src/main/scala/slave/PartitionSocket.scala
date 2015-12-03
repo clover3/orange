@@ -29,9 +29,9 @@ import scala.annotation.tailrec
       buffer
     }
     def checkMasterRequest(ip: String, ipP : Promise[String]): Unit = {
-      val buffer = ByteBuffer.allocate(15)
+      val buffer = ByteBuffer.allocate(16)
       println(ip)
-      buffer.put(ip.getBytes())
+      buffer.put((ip + "\n").getBytes())
       println(buffer)
       buffer.flip()
       sock.write(buffer)
@@ -52,8 +52,8 @@ import scala.annotation.tailrec
       f onSuccess {
         case u =>
           println("sendFN start")
-          val buffer = ByteBuffer.allocate(2)
-          buffer.put("FN".getBytes())
+          val buffer = ByteBuffer.allocate(3)
+          buffer.put("FN\n".getBytes())
           buffer.flip()
           sock.write(buffer)
           endp.complete(Success(()))
@@ -63,8 +63,8 @@ import scala.annotation.tailrec
     }
 
     def sendok(p : Promise[Unit]): Unit = {
-      val buffer = ByteBuffer.allocate(2)
-      buffer.put("OK".getBytes())
+      val buffer = ByteBuffer.allocate(3)
+      buffer.put("OK\n".getBytes())
       buffer.flip()
       sock.write(buffer)
       p.complete(Success(()))

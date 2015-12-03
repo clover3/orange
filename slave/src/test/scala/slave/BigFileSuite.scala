@@ -94,7 +94,9 @@ class BigFileSuite extends FunSuite {
     println("record size :" + records.size)
     assert(records(0)._1.length == 10)
     assert(records(0)._2.length == 90)
-    for( rec <- records ) output.appendRecord(rec)
+    for( rec <- records ) {
+      output.appendRecord(rec)
+    }
     output.close()
     val readRecords = output.toInputFile.getRecords(0,10)
     println(readRecords(0)._1)

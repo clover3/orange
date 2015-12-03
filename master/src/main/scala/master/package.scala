@@ -87,42 +87,61 @@ package object master {
       pSeq.toList
     }
 
-    def recvSlaveRequest (id : slaveID, sSock : SocketChannel)   = {
-        val buffer = ByteBuffer.allocate(15)
-        var nbytes = 0
-        var i = 0
-        nbytes = sSock.read(buffer)
-        val s = new String(buffer.array(), "ASCII").trim()
-        println(s.length)
-        println("recvSlaveRequest : " + s)
-        if(s.length != 0) {
-        if (s == "OK") {
-          sockPromises(id).complete(Success(()))
-        println("recvSlaveRequest OK id  : " + id)
+    def parsingRecv(buffer : ByteBuffer, num : Int) : List[String] = {
+      buffer.flip()
+      var i = 0
+      var s = ""
+      var sL : List[String] = Nil
+      while(i < num) {
+        val c = buffer.get()
+        if(c == 0xa){
+          sL = s :: sL
+          s = ""
         }
-        else if (s == "FN") {
-          finishPromises(id).complete(Success(()))
-        println("recvSlaveRequest FN id  : " + id)
+        else {
+          val sc = new String(Array(c))
+          s = s + sc
         }
-        else if (s.length > 2 && s.length < 16){
-        print(Iplist)
-        val sip = (Iplist.find(_._2 == s))
-        println(sip)
-        for (sopt <- sip) yield {
-          sockPromises(sopt._1).future onSuccess {
-            case u => 
-            buffer.clear()
-            buffer.put(sopt._2.getBytes())
-            buffer.flip()
-            sSock.write(buffer)
-            println("send S " + sopt._2 + " : " + sopt._1)
+        i = i + 1
+      }
+      buffer.compact()
+      sL
+    }
+
+    def recvSlaveRequest (id : slaveID, sSock : SocketChannel, buffer : ByteBuffer)   = {
+        //val buffer = ByteBuffer.allocate(100)
+        //var nbytes = 0
+        //var i = 0
+        sSock.read(buffer)
+        val num = buffer.array().lastIndexOf(0xa)
+        var parseS = parsingRecv(buffer, num + 1)
+        if(parseS.nonEmpty) {
+          if (parseS.contains("OK")) {
+            sockPromises(id).complete(Success(()))
+            println("recvSlaveRequest OK id  : " + id)
+            parseS = parseS.filterNot(_ == "OK")
           }
-        }
-      }
-        
-      else {
-          throw new Exception("strange string is " + s)
-      }
+          if (parseS.contains("FN")) {
+            finishPromises(id).complete(Success(()))
+            println("recvSlaveRequest FN id  : " + id)
+            parseS = parseS.filterNot(_ == "FN")
+          }
+          parseS.map {
+              case s =>
+              print(Iplist)
+              val sip = (Iplist.find(_._2 == s))
+              println(sip)
+              for (sopt <- sip) yield {
+                sockPromises(sopt._1).future onSuccess {
+                  case u =>
+                    val buffer = ByteBuffer.allocate(15)
+                    buffer.put(sopt._2.getBytes())
+                    buffer.flip()
+                    sSock.write(buffer)
+                    println("send S " + sopt._2 + " : " + sopt._1)
+                }
+              }
+            }
         }
     }
 
@@ -130,17 +149,18 @@ package object master {
       println("before fList")
       val fList = id2Slave.toList.map {
         case(id, slave) => Future {
-          @tailrec def loopfunction(id: slaveID, sock: SocketChannel): Unit = {
+          val b = ByteBuffer.allocate(100)
+          @tailrec def loopfunction(id: slaveID, sock: SocketChannel, b : ByteBuffer): Unit = {
             if (finishPromises(id).isCompleted) {
               println("finishPromises is Completed")
             }
             else {
-              recvSlaveRequest(id, sock)
-              loopfunction(id, sock)
+              recvSlaveRequest(id, sock, b)
+              loopfunction(id, sock, b)
             }
           }
           println("before loopfunction")
-          loopfunction(id, slave.sock)
+          loopfunction(id, slave.sock, b)
         }
       }
       println("before result")
