@@ -131,7 +131,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
       rafbuf.get(buf)
 
       val seq = for (i <- Range(0, nRecord)) yield {
-        val st = pos + i * recordSize
+        val st = i * recordSize
         val ed = st + recordSize
         val keyString =  buf.slice(st, st+ keySize)
         val dataString =  buf.slice(st+ keySize, ed)

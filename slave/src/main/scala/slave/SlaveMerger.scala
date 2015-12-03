@@ -28,7 +28,7 @@ package object merger {
 
   // Phase 2 of the sorting process
   trait ChunkMerger {
-    def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile
+    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit
   }
 
   // TODO OS might not keep pages of the files, It might be better to read sequence of data
@@ -46,8 +46,9 @@ package object merger {
       }
     }
 
-    def MergeWithPQ(sortedChunks: List[IBigFile]): IBigFile = {
-      val output: BigOutputFile = new BigOutputFile(getOutName())
+    def MergeWithPQ(sortedChunks: List[IBigFile]): Unit = {
+      val name = getOutName()
+      val output: BigOutputFile = new BigOutputFile(name)
 
       class DataBag(sources: Vector[IBigFile]) {
         val cursorArray: ArrayBuffer[Int] = ArrayBuffer.empty ++ (for (i <- Range(0, sources.size)) yield 0)
@@ -100,14 +101,19 @@ package object merger {
       }
 
       val pq: MergePQ = new SimplePQ(sortedChunks)
+      var n = 0
       while (!pq.isEmpty) {
         output.appendRecord(pq.getMin())
+        val unit = 1000000
+        if( n % unit == 0)
+          println(name + " : " + "=" * (n / unit) )
+        n = n + 1
       }
       output.close()
-      output.toInputFile
+      output
     }
 
-    def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
+    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit = {
        MergeWithPQ(sortedChunks)
     }
 
@@ -192,13 +198,13 @@ package object merger {
       rearrange(chunks.map(split))
     }
 
-    def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
+    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit = {
       val merger = new SingleThreadMerger(outputdir);
       val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)
       })
-      new ConcatFile(Await.result(all(futureList), Duration.Inf))
+      (Await.result(all(futureList), Duration.Inf))
     }
   }
 }
