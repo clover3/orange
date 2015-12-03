@@ -35,7 +35,7 @@ class ByteConsumer(val tempDir : String) {
   val init : Promise[Unit] = Promise[Unit]()
   val p : Promise[List[(BigOutputFile)]] = Promise[List[(BigOutputFile)]]()
 
-  def read(sockIp: String, records: Vector[Record], end : Boolean): Unit = {
+  def read(sockIp: String, records: Vector[BRecord], end : Boolean): Unit = {
 
     if (outBigfileList.nonEmpty && startedNewFile)
       records foreach {record => outBigfileList.head._2.appendRecord(record)}
@@ -125,7 +125,6 @@ trait newShuffleSock {
   val promise : Promise[Unit]
   def death() : Unit
   def write(cur_sock: Channel, file: IBigFile, st: Int, ed: Int): ChannelFuture = {
-
     cur_sock.writeAndFlush(Unpooled.wrappedBuffer(file.getRecords(st, ed).toMyBuffer))
   }
   def writeSize(cur_sock : Channel, size:Int) : ChannelFuture = {
@@ -213,7 +212,7 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
       byteConsumer.resetSize(size)
       if(size == 0)
       {
-        val result : Vector[Record] = Vector()
+        val result : Vector[BRecord] = Vector()
         check2 = false
         end = true
         list.add((result, !check2))
@@ -227,9 +226,9 @@ class Buf2VectorRecordDecode(ip : String, byteConsumer : ByteConsumer) extends B
   println("recordnum : " + recordnum)
   println("real_size : " + real_size)
   println("byteConsumer.size" + byteConsumer.headFileSize) */
- val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
+ val result: Vector[BRecord] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
    yield {
-     (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+     (byteBuf.readBytes(10).array(), (byteBuf.readBytes(90).array()))
    }).toVector
  if(real_size+ result.size == byteConsumer.headFileSize) {
    //println("real_size + result.size == byteConsumer.headFileSize : " + real_size , result.size, byteConsumer.headFileSize)
@@ -274,7 +273,7 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
       byteConsumer.resetSize(size)
       if(size == 0)
       {
-        val result : Vector[Record] = Vector()
+        val result : Vector[BRecord] = Vector()
         check2 = false
         end = true
         list.add((result, !check2))
@@ -284,9 +283,9 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
     if (byteBuf.readableBytes() < 100) return
     val recordnum: Int = byteBuf.readableBytes() / 100
   val real_size = cur_size
-  val result: Vector[Record] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
+  val result: Vector[BRecord] = (for (i <- Range(0, recordnum) if i + real_size < byteConsumer.headFileSize)
     yield {
-      (new String(byteBuf.readBytes(10).array()), new String(byteBuf.readBytes(90).array()))
+      (byteBuf.readBytes(10).array(), byteBuf.readBytes(90).array())
     }).toVector
   if(real_size + result.size == byteConsumer.headFileSize) {
   //  println("real_size + result.size == byteConsumer.headFileSize : " + real_size + result.size, byteConsumer.headFileSize)
@@ -300,7 +299,7 @@ class Buf2VectorRecordClientDecode(c : SocketChannel, byteConsumer : ByteConsume
 
 class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInboundHandlerAdapter {
   override def channelRead(channelHandlerContext: ChannelHandlerContext, msg: Object) = {
-    val (vectorRecord , end): (Vector[Record], Boolean) = msg.asInstanceOf[(Vector[Record], Boolean)]
+    val (vectorRecord , end): (Vector[BRecord], Boolean) = msg.asInstanceOf[(Vector[BRecord], Boolean)]
     byteconsumer.read(ip, vectorRecord, end)
   }
 
@@ -378,7 +377,7 @@ class myClientHandler(c: SocketChannel, byteConsumer: ByteConsumer) extends Chan
   }
 
   override def channelRead(channelHandlerContext: ChannelHandlerContext, o: scala.Any): Unit = {
-    val (vectorRecord , end): (Vector[Record], Boolean) = o.asInstanceOf[(Vector[Record], Boolean)]
+    val (vectorRecord , end): (Vector[BRecord], Boolean) = o.asInstanceOf[(Vector[BRecord], Boolean)]
     byteConsumer.read(c.remoteAddress().toString.toIPList.toIPString, vectorRecord, end)
   }
 

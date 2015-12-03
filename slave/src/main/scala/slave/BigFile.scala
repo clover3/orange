@@ -17,26 +17,27 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 
+
 trait IBigFile {
   val recordPerFile = 327680
   // returns total number of records in this file
   def numOfRecords: Int
 
   // get i'th record
-  def getRecord(i: Int): Record
+  def getRecord(i: Int): BRecord
 
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record]
+  def getRecords(st: Int, ed: Int): Vector[BRecord]
 }
 
 trait IBigFileWithCache extends IBigFile{
 
   //get i'th record from recordCache(using Cache->hit or miss)
-  def getRecordByCached(i:Int) :Record
+  def getRecordByCached(i:Int) :BRecord
 
   //put records to Cache Frome File ( if Cache miss)
-  def getRecordFromFileWithCache(i: Int): Record
+  def getRecordFromFileWithCache(i: Int): BRecord
 
   //min(a,b)
   def min(a: Int, b: Int): Int ={
@@ -44,8 +45,6 @@ trait IBigFileWithCache extends IBigFile{
     else a
   }
 
-  //get i'th record directly from file
-  def getRecordDirect(i: Int): Record
 }
 
 class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
@@ -68,19 +67,18 @@ class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
   def numOfRecords: Int = recordPerFile * totalFileNum
 
   // get i'th record
-  def getRecord(i: Int): Record = {
+  def getRecord(i: Int): BRecord = {
     getRecordByCached(i)
-
   }
 
-  def getRecordByCached(i:Int) :Record = {
+  def getRecordByCached(i:Int) :BRecord = {
     cache.getRecord(i) match {
       case None => getRecordFromFileWithCache(i)
       case Some(i) => i
     }
   }
 
-  def getRecordFromFileWithCache(i: Int): Record ={
+  def getRecordFromFileWithCache(i: Int): BRecord ={
     val keyOffset :Long = 10
     val totalOffset :Long = 100
     val lineSize : Int = 100
@@ -95,55 +93,27 @@ class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
       buf
     }
 
-    val pos = totalOffset * recordIndex
+    val pos = lineSize * recordIndex
     val nRecord = min(400, recordPerFile - i)
     val buf :Array[Byte] = new Array[Byte](lineSize*nRecord )
     rafbuf.position()
     rafbuf.get(buf)
 
-    val seq = for (i<- Range(0,nRecord)) yield {
-      val st = i * lineSize
+    val seq = for (i <- Range(0, nRecord)) yield {
+      val st = pos + i * lineSize
       val ed = st + lineSize
-      val readline = new String(buf.slice(st, ed))
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
-      (keyString, dataString)
+      val strBuilder = new StringBuilder()
+      def append(b: Byte, sb :StringBuilder) : StringBuilder = sb.append(b)
+      val key =  buf.slice(st, st+ keyOffset.toInt)
+      val data =  buf.slice(st+ keyOffset.toInt, ed)
+      (key, data)
     }
     cache.addRecords(seq.toVector,i)
     cache.touch(i)
     seq.head
   }
 
-  def getRecordDirect(i: Int): Record = {
-    val fileIndex :Int = i/numOfRecords
-    val recordIndex : Int = i%numOfRecords
-    //define randomAccessFile just for read("r)
-    val rafbuf = {
-      val raf = new RandomAccessFile(fileList(fileIndex), "r")
-      val buf = raf.getChannel.map(FileChannel.MapMode.READ_ONLY, 0, raf.length())
-      raf.close()
-      buf
-    }
-
-    //set Offset for key or value
-    //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
-    //    10 - 32 - 52
-    val keyOffset :Long = 10
-    val totalOffset = 100
-    val lineSize : Int = 100
-    val buf :Array[Byte] = new Array[Byte](lineSize )
-    //set position
-    val pos = (totalOffset) * recordIndex
-    rafbuf.position(pos)
-    rafbuf.get(buf)
-
-    val readline = new String(buf)
-    val keyString = readline.take(keyOffset.toInt)
-    val dataString = readline.drop(keyOffset.toInt)
-    (keyString, dataString)
-  }
-
-  def getRecords(st: Int, ed: Int): Vector[Record] = {
+  def getRecords(st: Int, ed: Int): Vector[BRecord] = {
 
     val fileIndexStart    :Int = st / recordPerFile
     val fileIndexEnd      :Int = ed / recordPerFile
@@ -151,7 +121,7 @@ class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
     val recordIndexEnd    :Int = ed % recordPerFile
     val keySize = 10
     val recordSize = 100
-    def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : IndexedSeq[Record] = {
+    def readFile (file : RandomAccessFile, stRecord: Int, edRecord: Int) : IndexedSeq[BRecord] = {
       val rafbuf = file.getChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
       file.close()
       val pos = stRecord * recordSize
@@ -160,12 +130,11 @@ class MultiFile(inputDirs : List[String])  extends IBigFileWithCache{
       rafbuf.position(pos)
       rafbuf.get(buf)
 
-      val seq = for( i <- Range(0, nRecord) ) yield {
-        val st = i * recordSize
+      val seq = for (i <- Range(0, nRecord)) yield {
+        val st = pos + i * recordSize
         val ed = st + recordSize
-        val readline = new String(buf.slice(st, ed))
-        val keyString = readline.take(keySize)
-        val dataString = readline.drop(keySize)
+        val keyString =  buf.slice(st, st+ keySize)
+        val dataString =  buf.slice(st+ keySize, ed)
         (keyString, dataString)
       }
       seq
@@ -205,38 +174,36 @@ class SingleFile(name : String) extends IBigFileWithCache {
   val cache = new RecordCache
   lazy val numOfRecords: Int = rafbuf.limit().toInt / 100
   // get i'th record
-  def getRecord(i: Int): Record = {
+  def getRecord(i: Int): BRecord = {
     //getRecordDirect(i)
     getRecordByCached(i)
   }
 
-  def getRecordByCached(i: Int): Record = {
+  def getRecordByCached(i: Int): BRecord = {
     cache.getRecord(i) match {
       case None => getRecordFromFileWithCache(i)
       case Some(r) => r
     }
   }
 
-  def getRecordFromFileWithCache(i: Int): Record = {
+  def getRecordFromFileWithCache(i: Int): BRecord = {
 
     //set Offset for key or value
     //ex) AsfAGHM5om  00000000000000000000000000000000  0000222200002222000022220000222200002222000000001111
     //    10 - 32 - 52
-    val keyOffset: Long = 10
-    val totalOffset: Long = 100
-    val lineSize: Int = 100
-    val pos = lineSize * i
+    val keySize = 10
+    val recordSize = 100
+    val pos = recordSize * i
     val nRecord = min(400, numOfRecords - i)
-    val buf: Array[Byte] = new Array[Byte](lineSize * nRecord)
+    val buf: Array[Byte] = new Array[Byte](recordSize * nRecord)
     rafbuf.position(pos)
     rafbuf.get(buf)
 
     val seq = for (i <- Range(0, nRecord)) yield {
-      val st = i * lineSize
-      val ed = st + lineSize
-      val readline = new String(buf.slice(st, ed))
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
+      val st = i * recordSize
+      val ed = st + recordSize
+      val keyString =  buf.slice(st, st+ keySize)
+      val dataString =  buf.slice(st+ keySize, ed)
       (keyString, dataString)
     }
     cache.addRecords(seq.toVector, i)
@@ -244,7 +211,7 @@ class SingleFile(name : String) extends IBigFileWithCache {
     seq.head
   }
 
-  def getRecordDirect(i: Int): Record = {
+  def getRecordDirect(i: Int): BRecord = {
 
     //define randomAccessFile just for read("r)
 
@@ -260,16 +227,12 @@ class SingleFile(name : String) extends IBigFileWithCache {
     rafbuf.position(pos)
     rafbuf.get(buf)
 
-
-    val readline = new String(buf.take(100))
-    val keyString = readline.take(keyOffset.toInt)
-    val dataString = readline.drop(keyOffset.toInt)
-    (keyString, dataString)
+    (buf.take(10), buf.drop(10))
   }
 
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] = {
+  def getRecords(st: Int, ed: Int): Vector[BRecord] = {
 
     val keyOffset: Long = 10
     val totalOffset = 100
@@ -279,10 +242,7 @@ class SingleFile(name : String) extends IBigFileWithCache {
     rafbuf.position(pos)
     val recordVector = for (i <- Range(st, ed)) yield {
       rafbuf.get(buf)
-      val readline = new String(buf.take(100))
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
-      (keyString, dataString): Record
+      (buf.take(10), buf.drop(10))
     }
     recordVector.toVector
   }
@@ -290,17 +250,17 @@ class SingleFile(name : String) extends IBigFileWithCache {
 
 class ConcatFile( files : List[IBigFile]) extends IBigFile {
   def numOfRecords: Int = ???
-  def getRecord(i: Int): Record = ???
-  def getRecords(st: Int, ed: Int): Vector[Record] = ???
+  def getRecord(i: Int): BRecord = ???
+  def getRecords(st: Int, ed: Int): Vector[BRecord] = ???
 }
 
 class RecordCache {
   val maxEntry = 50
-  type CacheEntry = (Int, Int, Vector[Record])
+  type CacheEntry = (Int, Int, Vector[BRecord])
   var cacheVector : Vector[CacheEntry] = Vector.empty
 
   def touch(loc:Int) = {}
-  def addRecords(records :Vector[Record], loc :Int) = {
+  def addRecords(records :Vector[BRecord], loc :Int) = {
     if( cacheVector.size < maxEntry ) {
       val entry = (loc, records.size, records)
       cacheVector = entry +: cacheVector
@@ -321,8 +281,8 @@ class RecordCache {
   def removeCheck(loc:Int): Unit = {
     cacheVector = cacheVector.filterNot(endOf(loc))
   }
-  def getRecord(loc :Int) : Option[Record] = {
-    val rec :Option[Record] = cacheVector.find( contain(loc) ) match {
+  def getRecord(loc :Int) : Option[BRecord] = {
+    val rec :Option[BRecord] = cacheVector.find( contain(loc) ) match {
       case None => None
       case Some(e) => {
         val vector = e._3
@@ -341,8 +301,8 @@ class RecordCache2(name : String) {
 
   val blockSize = 1000
   val maxEntry = 50
-  type CacheEntry = (Int, Int, Vector[Record])
-  type CacheEntryF = (Int, Int, Future[Vector[Record]])
+  type CacheEntry = (Int, Int, Vector[BRecord])
+  type CacheEntryF = (Int, Int, Future[Vector[BRecord]])
   var cacheVector : Vector[CacheEntry] = Vector.empty
   var cacheVectorF : Vector[CacheEntryF] = Vector.empty
 
@@ -366,7 +326,7 @@ class RecordCache2(name : String) {
   }
 
   //File read func
-  def readFile(pos:Int ,loc:Int) : Vector[Record]={
+  def readFile(pos:Int ,loc:Int) : Vector[BRecord]={
     val nRecord = min(blockSize, numOfRecords-loc)
     val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
     rafbuf.position(pos)
@@ -374,17 +334,15 @@ class RecordCache2(name : String) {
     val seq = for( i <- Range(0, nRecord) ) yield {
       val st = i * lineSize
       val ed = st + lineSize
-      val readline = new String(buf.slice(st, ed))
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
-      (keyString, dataString)
+      val bufSub :Array[Byte] = buf.slice(st, ed)
+      (bufSub.take(keyOffset.toInt), bufSub.drop(keyOffset.toInt))
     }
     seq.toVector
   }
 
   def addRecords(loc :Int) = {
     val pos = lineSize * (loc)
-    val records : Vector[Record] = readFile(pos,loc)
+    val records : Vector[BRecord] = readFile(pos,loc)
     if( cacheVector.size < maxEntry ) {
       val entry = (loc, records.size, records)
       cacheVector =  cacheVector :+ entry
@@ -395,7 +353,7 @@ class RecordCache2(name : String) {
   //case loc == end of cache
   def addFutureRecords(loc:Int) :Unit  = {
     val pos = lineSize * (loc +1)
-    def records : Vector[Record] = readFile(pos,loc+1)
+    def records : Vector[BRecord] = readFile(pos,loc+1)
     if( cacheVectorF.size < maxEntry ) { //maybe always cacheVectorF.size =1
     val entry = (loc, records.size, Future {records})
       cacheVectorF = cacheVectorF :+ entry
@@ -446,8 +404,8 @@ class RecordCache2(name : String) {
   }
 
 
-  def getRecord(loc :Int) : Option[Record] = {
-    val rec: Option[Record] = cacheVector.find(contain(loc)) match {
+  def getRecord(loc :Int) : Option[BRecord] = {
+    val rec: Option[BRecord] = cacheVector.find(contain(loc)) match {
       case Some(e) => {
         //        if (endOf(loc)(e)){
         //          addFutureRecords(loc)
@@ -459,7 +417,7 @@ class RecordCache2(name : String) {
 
         //case 1. record(i) exists in cache  =>find record i
         val index = loc - e._1
-        val vector: Vector[Record] = e._3
+        val vector: Vector[BRecord] = e._3
         Option(vector(index))
       }
       case None => cacheVectorF.find(containF(loc)) match {
@@ -473,7 +431,7 @@ class RecordCache2(name : String) {
         case Some(e) => {
           //case 2.2 record(i) exists in cacheF
           val index = loc - e._1
-          val vector : Vector[Record]= Await.result(e._3,Duration.Inf)
+          val vector : Vector[BRecord]= Await.result(e._3,Duration.Inf)
           moveCacheFToCache(loc) //delete now cacheF(Future) and add to cache(not future)
           Option(vector(index))
         }
@@ -500,10 +458,11 @@ class SingleFilePreFetch(name : String) extends IBigFile {
   lazy val numOfRecords: Int = rafbuf.limit().toInt / 100
 
   // get i'th record
-  def getRecord(i: Int): Record = {
+  def getRecord(i: Int): BRecord = {
     //getRecordDirect(i)
     cache.getRecord(i) match {
       case Some(r) => r
+      case None => throw new Exception
     }
   }
 
@@ -514,7 +473,7 @@ class SingleFilePreFetch(name : String) extends IBigFile {
     else a
   }
 
-  def getRecordDirect(i: Int): Record = {
+  def getRecordDirect(i: Int): BRecord = {
     val keyOffset: Long = 10
     val totalOffset = 100
     val lineSize: Int = 100
@@ -523,15 +482,12 @@ class SingleFilePreFetch(name : String) extends IBigFile {
     rafbuf.position(pos)
     rafbuf.get(buf)
 
-    val readline = new String(buf.take(100))
-    val keyString = readline.take(keyOffset.toInt)
-    val dataString = readline.drop(keyOffset.toInt)
-    (keyString, dataString)
+    (buf.take(10), buf.drop(10))
   }
 
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] = {
+  def getRecords(st: Int, ed: Int): Vector[BRecord] = {
 
     val keyOffset: Long = 10
     val totalOffset = 100
@@ -541,10 +497,7 @@ class SingleFilePreFetch(name : String) extends IBigFile {
     rafbuf.position(pos)
     val recordVector = for (i <- Range(st, ed)) yield {
       rafbuf.get(buf)
-      val readline = new String(buf.take(100))
-      val keyString = readline.take(keyOffset.toInt)
-      val dataString = readline.drop(keyOffset.toInt)
-      (keyString, dataString): Record
+      (buf.take(10), buf.drop(10))
     }
     recordVector.toVector
   }
@@ -554,23 +507,44 @@ class ConstFile extends IBigFile{
   def numOfRecords: Int = 327680 * 5
 
   // get i'th record
-  def getRecord(i: Int): Record = {
+  def getRecord(i: Int): BRecord = {
     val keyVal = 1000* 10000 - i
-    val keyString = "%010d".format(keyVal)
-    val dataString = "7" * 90
-    (keyString, dataString)
+    val key = StringToByteArray("%010d".format(keyVal))
+    val data = StringToByteArray("4" * 90)
+    (key, data)
   }
   // return collection of records
   // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] =
+  def getRecords(st: Int, ed: Int): Vector[BRecord] =
   {
     val lst = Range(st, ed).map( x => getRecord(x))
     lst.toVector
   }
 }
+
+class SortedConstFile extends IBigFile{
+  // returns total number of records in this file
+  def numOfRecords: Int = 200
+
+  // get i'th record
+  def getRecord(i: Int): BRecord = {
+    val keyVal:Int = i * 3
+    val key = StringToByteArray("%010d".format(keyVal))
+    val data = StringToByteArray("4" * 90)
+    (key, data)
+  }
+  // return collection of records
+  // starting from st to ed  ( it should not include ed'th record )
+  def getRecords(st: Int, ed: Int): Vector[BRecord] =
+  {
+    val lst = Range(st, ed).map( x => getRecord(x))
+    lst.toVector
+  }
+  /////for test
+}
 class PartialFile( file:IBigFile, st:Int, ed:Int) extends IBigFile {
   def numOfRecords = (ed - st)
-  def getRecord(i : Int) :Record = {
+  def getRecord(i : Int) :BRecord = {
     file.getRecord(i + st)
   }
   def getRecords(stArg:Int, edArg: Int) = {
@@ -582,10 +556,10 @@ class PartialFile( file:IBigFile, st:Int, ed:Int) extends IBigFile {
 trait IOutputFile {
 
   //set Vector[Record]
-  def setRecords(records : Vector[Record]) : Future[Unit]
+  def setRecords(records : Vector[BRecord]) : Future[Unit]
 
   //append record to eof
-  def appendRecord(record: Record ) : Unit
+  def appendRecord(record: BRecord ) : Unit
 
   //convert IOutputFile => IBigFile
   def toInputFile : IBigFile
@@ -594,56 +568,9 @@ trait IOutputFile {
   def close()
 }
 
-class AppendOutputFile(outputPath: String) {
-  val dummyRec = ("", "")
-  val cacheSize = 1000
-  val cachedRecord: MutableList[Record] = MutableList.empty
-  var vect : Vector[Record] = Vector.empty
-  var index:Int = 0
-  val ostream: FileOutputStream = {
-    new FileOutputStream(new File(outputPath))
-  }
-
-  def setRecords(records: Vector[Record]): Future[Unit] = ???
-
-  def flush() = {
-    //for (i <- Range(0, cachedRecord.size)) {
-    var i = 0
-    while( i < vect.size ){
-      val pair = vect(i)
-      val text = (pair._1 + pair._2 + "\n")
-      val buf = text.toCharArray().map(x => x.toByte)
-      //val buf = ByteBuffer.wrap(text.getBytes)
-      ostream.write(buf)
-      i = i + 1
-    }
-    //cachedRecord.clear()
-    vect = Vector.empty
-  }
-
-  def appendRecord(record: Record): Unit = {
-    //cachedRecord += record
-    vect = vect :+ record
-    //if( cachedRecord.size >= 100 )
-    if( vect.size >= 1000)
-      flush()
-
-  }
-  def close() : Unit = {
-    flush()
-    ostream.close()
-  }
-  def toInputFile : IBigFile = {
-    new SingleFile(outputPath)
-  }
-
-
-
-}
-
 class BigOutputFile(outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
-  val cachedRecord: MutableList[Record] = MutableList.empty
+  val cachedRecord: MutableList[BRecord] = MutableList.empty
   val memoryMappedFile = {
     deleteIfExist(outputPath)
     new RandomAccessFile(outputPath, "rw");
@@ -651,7 +578,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
   var lastPos:Long = 0
   var size = 0
 
-  def setRecords(records: Vector[Record]): Future[Unit] = Future{
+  def setRecords(records: Vector[BRecord]): Future[Unit] = Future{
     val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, records.size * 100);
     writeToBuf(out, records)
     memoryMappedFile.close()
@@ -659,7 +586,7 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
   }
 
 
-  def appendRecord(record: Record): Unit = {
+  def appendRecord(record: BRecord): Unit = {
     cachedRecord += record
     size += 1
     if( cachedRecord.size >= cacheSize )
@@ -684,18 +611,16 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
     cachedRecord.clear()
   }
 
-  def writeToBuf(out : MappedByteBuffer, records:Vector[Record]) = {
+  def writeToBuf(out : MappedByteBuffer, records:Vector[BRecord]) = {
     for(i <- Range(0,records.size) )
     {
       val pair = records(i)
-      val str = (pair._1 + pair._2 )
-      val dbg = str.getBytes
-      val buf = ByteBuffer.wrap(str.getBytes)
+      val buf:ByteArray = Array.concat(pair._1, pair._2)
       out.put(buf)
     }
   }
 
-  private def appendRecords(records :Vector[Record]) : Unit = {
+  private def appendRecords(records :Vector[BRecord]) : Unit = {
     val filesize = memoryMappedFile.length()
     val out = memoryMappedFile.getChannel().map(FileChannel.MapMode.READ_WRITE, lastPos , records.size * 100);
     out.position(0)
@@ -709,45 +634,26 @@ class BigOutputFile(outputPath: String) extends  IOutputFile {
 
 /////for test
 class NullOutputFile extends IOutputFile {
-  def setRecords(records : Vector[Record]) : Future[Unit] = Future{
+  def setRecords(records : Vector[BRecord]) : Future[Unit] = Future{
   }
-  def write(record: Record ) : Future[Unit] = Future {
+  def write(record: BRecord ) : Future[Unit] = Future {
 
   }
-  def appendRecord(record: Record ) : Unit = ???
+  def appendRecord(record: BRecord ) : Unit = ???
   def toInputFile : IBigFile = new ConstFile
   def close = ()
 }
 
-class SortedConstFile extends IBigFile{
-  // returns total number of records in this file
-  def numOfRecords: Int = 200
-
-  // get i'th record
-  def getRecord(i: Int): Record = {
-    val keyVal:Int = i * 3
-    val keyString = "%010d".format(keyVal)
-    val dataString = "4" * 90
-    (keyString, dataString)
-  }
-  // return collection of records
-  // starting from st to ed  ( it should not include ed'th record )
-  def getRecords(st: Int, ed: Int): Vector[Record] =
-  {
-    val lst = Range(st, ed).map( x => getRecord(x))
-    lst.toVector
-  }
-  /////for test
-}
 
 
 object Splitter {
-  def makePartitionsListFromKey(file:IBigFile, keyList: List[String]) : List[(Int,Int)]={
+  def makePartitionsListFromKey(file:IBigFile, keyList: List[ByteArray]) : List[(Int,Int)]={
     // returns List[index of key in file that is same or bigger than given key]
-    def getIndexList(keyList : List[String], st:Int, ed:Int) : List[Int] = {
+    def getIndexList(keyList : List[ByteArray], st:Int, ed:Int) : List[Int] = {
       if( keyList.isEmpty )
         Nil
-      else if( st + 1 >= ed){
+      else if( st + 1 >= ed)
+      {
         val n = if( ed < file.numOfRecords ) st
         else ed
         keyList.map(_ => n)
@@ -757,7 +663,10 @@ object Splitter {
         val midKey = file.getRecord(mid-1)._1
         val leftKey = keyList.filter(key => key <= midKey)
         val rightKey = keyList.filter(key => key > midKey)
-        getIndexList(leftKey, st, mid ) ::: getIndexList(rightKey, mid , ed)
+        assert( keyList.size == (leftKey.size+rightKey.size) )
+        val l1 = getIndexList(leftKey, st, mid )
+        val l2 = getIndexList(rightKey, mid , ed)
+        l1 ::: l2
       }
     }
 
@@ -769,7 +678,8 @@ object Splitter {
   }
 
   def makePartitionsList(file:IBigFile, partitions : Partitions) : List[(Int,Int)]={
-    val keyList: List[String] = partitions.head._2::partitions.map({p => p._3})
+    val strList =  partitions.head._2::partitions.map({p => p._3})
+    val keyList: List[ByteArray] = strList.map(str => str.toCharArray().map(x => x.toByte))
     makePartitionsListFromKey(file, keyList)
   }
 }

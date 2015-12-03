@@ -1,6 +1,7 @@
 package slave
 
 import org.scalatest.FunSuite
+import slave.Record._
 import slave.util._
 
 import scala.concurrent.Await
@@ -25,7 +26,7 @@ class BigFileSuite extends FunSuite {
     val rCnt = result.size
     assert(rCnt == cnt)
     println("Keys : ")
-    for(i <- Range(0,10) ) println(result(i)._1)
+    for(i <- Range(0,10) ) println(new String(result(i)._1))
   }
 
   test("check file read (ConstFile)"){
@@ -38,7 +39,24 @@ class BigFileSuite extends FunSuite {
     println("vector.size - time elapsed(ms) : " + time2 )
     assert(rCnt == cnt)
     println("Keys : ")
-    for(i <- Range(0,10) ) println(result(i)._1)
+    for(i <- Range(0,10) ) println(new String(result(i)._1))
+  }
+
+  test("Record Comparison"){
+    val input: IBigFile = new ConstFile
+    val rec1 = input.getRecord(10)
+    val rec2 = input.getRecord(20)
+    val rec3 = input.getRecord(30)
+
+    println(rec1.toStr)
+    println(rec2.toStr)
+    println(rec3.toStr)
+
+    assert( rec1._1 > rec2._1)
+    assert( rec1._1 >= rec2._1)
+    assert( rec3._1 <= rec2._1 )
+    assert( rec1._1 > rec3._1 )
+    assert( (rec1._1).myEqual( rec1._1) == true )
   }
 
   test("Test for Prefetched read"){
@@ -199,10 +217,13 @@ class BigFileSuite extends FunSuite {
 
     assert(vfile.numOfRecords == 5)
 
-    val rec  = vfile.getRecord(0)
-    println("rec(0):" +rec)
+    val rec :BRecord = vfile.getRecord(0)
+    println("rec(0):" + rec.toStr)
     val recs = vfile.getRecords(0, vfile.numOfRecords)
-    println("recs(0:5):"+ recs)
+    println("recs(0:5):")
+    recs.map(r => println(r.toStr))
   }
+
+
 }
 

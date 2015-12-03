@@ -12,10 +12,13 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Promise, Await, Future}
 import scala.math._
+import scala.sys.process._
 
 import java.io._
+
+import scala.util.Success
 
 
 /**
@@ -29,23 +32,23 @@ package object sorter {
     def generateSortedChunks(inputs: List[IBigFile]): List[Future[IBigFile]]
 
     //  TODO :[Optimization] change sort to in-memory sort.
-    def sort(data: Vector[Record]) : Vector[Record] = data.sortBy(rec => rec._1)
+    def sort(data: Vector[BRecord]) : Vector[BRecord] = data.sortBy(rec => rec._1)
     // TODO : as seq and arr both exists, this might results in memory overuse
-    def merge(seq: Seq[Vector[Record]]) : Vector[Record] = {
+    def merge(seq: Seq[Vector[BRecord]]) : Vector[BRecord] = {
 
-      val arr : ArrayBuffer[ArrayBuffer[Record]] = ArrayBuffer.empty
+      val arr : ArrayBuffer[ArrayBuffer[BRecord]] = ArrayBuffer.empty
       seq.foreach( v => {
-        val arrElem : ArrayBuffer[Record] = ArrayBuffer.empty
+        val arrElem : ArrayBuffer[BRecord] = ArrayBuffer.empty
         arrElem ++= v
         arr += arrElem
       })
 
-      def findMin(arr:ArrayBuffer[ArrayBuffer[Record]]) : (Record,Int) = {
-        def getMin( t1:(Record, Int), t2:(Record,Int) ) : (Record,Int) = {
+      def findMin(arr:ArrayBuffer[ArrayBuffer[BRecord]]) : (BRecord,Int) = {
+        def getMin( t1:(BRecord, Int), t2:(BRecord,Int) ) : (BRecord,Int) = {
           if( t1._1.key > t2._1.key) t2
           else t1
         }
-        val firstVal:((Record,Int),Int) = ((arr.head.head, 0),0)
+        val firstVal:((BRecord,Int),Int) = ((arr.head.head, 0),0)
         arr.foldLeft(firstVal) {
           (t,vect) => {
             val rec_t = t._1
@@ -54,7 +57,7 @@ package object sorter {
           }
         }._1
       }
-      def removeRec(arr: ArrayBuffer[ArrayBuffer[Record]], rec:(Record,Int)) : ArrayBuffer[ArrayBuffer[Record]] = {
+      def removeRec(arr: ArrayBuffer[ArrayBuffer[BRecord]], rec:(BRecord,Int)) : ArrayBuffer[ArrayBuffer[BRecord]] = {
         arr(rec._2) -= rec._1
         if (arr(rec._2).isEmpty)
           arr -= arr(rec._2)
@@ -62,11 +65,11 @@ package object sorter {
       }
 
       @tailrec
-      def mergeAcc(sorted:ArrayBuffer[Record], arr: ArrayBuffer[ArrayBuffer[Record]]) : ArrayBuffer[Record] = {
+      def mergeAcc(sorted:ArrayBuffer[BRecord], arr: ArrayBuffer[ArrayBuffer[BRecord]]) : ArrayBuffer[BRecord] = {
         if( arr.isEmpty )
           sorted
         else {
-          val min: (Record, Int) = findMin(arr)
+          val min: (BRecord, Int) = findMin(arr)
           mergeAcc((sorted += min._1), removeRec(arr, min))
         }
       }
@@ -78,7 +81,7 @@ package object sorter {
 
   // DivideChunk: (IBigFile,blockSize) -> (IBigFile,st,ed)
   // read_sort_write : (IBigFile, outfileName, st,ed) -> IBigFile
-  // sort : Vector[Record] -> [Vector[Record]]
+  // sort : Vector[BRecord] -> [Vector[BRecord]]
   //
   class SingleThreadSorter(val rs: ResourceChecker, val tempDir : String) extends ChunkSorter {
     def divideChunk(inFile:IBigFile, blockSize:Int, outPrefix:String) : IndexedSeq[(IBigFile, String, Int, Int)] = {
@@ -100,7 +103,7 @@ package object sorter {
     def read_sort_write( tuple: (IBigFile, String, Int, Int)) : IBigFile = tuple match {
       case (inFile, outfileName, st, ed) => {
         def read = inFile.getRecords(st,ed)
-        def write(data: Vector[Record]) = {
+        def write(data: Vector[BRecord]) = {
           val out = new BigOutputFile(tuple._2)
           Await.result(out.setRecords(data), Duration.Inf)
           out
@@ -155,10 +158,37 @@ package object sorter {
       tasksScheduled.map( t => Future{read_sort_write(t)} ).toList
     }
   }
+/*
+  class CPPSorter (val tempDIr :String){
+    def generateSortedChunks(files : List[String]) : List[Future[IBigFile]] = {
+      val size = files.size
+      val promiseList : List[Promise[IBigFile]] = for(i<-size) yield {Promise[IBigFile]()}
+      taskRunner(files, nameList(size), promiseList)
+      promiseList.map(p => p.future)
+    }
+    def nameList(size:Int) : List[String] = {
+      val namePrefix = "sortedChunk"
+      val names = for( i <- Range(0,size)) yield { namePrefix+ i + "-"}
+      names.toList
+    }
+    def taskRunner(files: List[String], outname: List[String], promiseList: List[Promise[IBigFile]])
+    : Future[Unit] = Future{
+      val tasks = (files zip outname zip promiseList) map (t => (t._1._1, t._1._2, t._2))
+      tasks map (t => read_sort_write(t._1, t._2, t._3))
+    }
+
+    def read_sort_write(path : String, outpath :String, p : Promise[IBigFile]) : Future[Unit] = Future{
+      val cmd = "./a.exe " + path + " " + outpath
+      cmd.!!
+      val file:IBigFile = new SingleFile(outpath)
+      p.complete(Success(file))
+    }
+  }
+*/
 
   // sortChunk( IBigFile, String, Int, Int) => IBigFile
   // -> sortMiniChunk : (IBigFile, Int, Int) => Future[Vector[Record]]
-  // -> mergeMiniChunk : (Future[List[Vector[Record]]]) => Vector[Record]
+  // -> mergeMiniChunk : (Future[List[Vector[BRecord]]]) => Vector[BRecord]
   class MultiThreadMergeSorter(val rs2: ResourceChecker, override val tempDir : String) extends SingleThreadSorter(rs2, tempDir){
     def divideInterval(n:Int, st:Int, ed:Int) : List[(Int,Int)] = {
       assert( ed - st > n )
@@ -172,18 +202,18 @@ package object sorter {
       }).toList
     }
 
-    def read_sort(file: IBigFile, st: Int, ed: Int): Future[Vector[Record]] = async{
-      val data : Vector[Record] = file.getRecords(st,ed)
+    def read_sort(file: IBigFile, st: Int, ed: Int): Future[Vector[BRecord]] = async{
+      val data : Vector[BRecord] = file.getRecords(st,ed)
       sort(data)
     }
 
-    def sortMiniChunk(input: IBigFile, st:Int, ed:Int) : Future[Vector[Record]] = {
+    def sortMiniChunk(input: IBigFile, st:Int, ed:Int) : Future[Vector[BRecord]] = {
       read_sort(input, st, ed)
     }
 
 
-    def mergeMiniChunk(fList: Future[Seq[Vector[Record]]]) : Future[Vector[Record]] = async {
-      val seq : Seq[Vector[Record]] = await{ fList }
+    def mergeMiniChunk(fList: Future[Seq[Vector[BRecord]]]) : Future[Vector[BRecord]] = async {
+      val seq : Seq[Vector[BRecord]] = await{ fList }
       merge(seq)
     }
 
@@ -191,11 +221,11 @@ package object sorter {
       case (input, outfileName, st, ed) => {
         val numCores = 4
         val intervals  = divideInterval(numCores, st, ed)
-        val futureChunks : List[Future[Vector[Record]]] = intervals.map { tuple:(Int,Int) =>
+        val futureChunks : List[Future[Vector[BRecord]]] = intervals.map { tuple:(Int,Int) =>
           sortMiniChunk(input, tuple._1, tuple._2)
         }
-        val futureSortedChunk : Future[Vector[Record]] = mergeMiniChunk(all(futureChunks))
-        val sortedBigChunk : Vector[Record] = Await.result(futureSortedChunk, Duration.Inf)
+        val futureSortedChunk : Future[Vector[BRecord]] = mergeMiniChunk(all(futureChunks))
+        val sortedBigChunk : Vector[BRecord] = Await.result(futureSortedChunk, Duration.Inf)
         val outfile: IOutputFile = new BigOutputFile(outfileName)
         outfile.setRecords(sortedBigChunk)
         outfile.toInputFile

@@ -21,7 +21,7 @@ package object merger {
 
 
   trait MergePQ {
-    def getMin(): Record
+    def getMin(): BRecord
 
     def isEmpty: Boolean
   }
@@ -52,7 +52,7 @@ package object merger {
       class DataBag(sources: Vector[IBigFile]) {
         val cursorArray: ArrayBuffer[Int] = ArrayBuffer.empty ++ (for (i <- Range(0, sources.size)) yield 0)
 
-        def getItem(index: Int): Option[Record] = {
+        def getItem(index: Int): Option[BRecord] = {
           val cursor = cursorArray(index)
           if (cursor < sources(index).numOfRecords) {
             val rec = sources(index).getRecord(cursor)
@@ -71,16 +71,15 @@ package object merger {
       }
 
       class SimplePQ(sortedChunks: List[IBigFile]) extends MergePQ {
-
-        object EntryOrdering extends Ordering[(Record, Int)] {
-          def compare(a: (Record, Int), b: (Record, Int)) = b._1._1 compare a._1._1
+        object EntryOrdering extends Ordering[(BRecord, Int)] {
+          def compare(a: (BRecord, Int), b: (BRecord, Int)) = BAOrdering.compare(b._1._1, a._1._1)
         }
 
-        val priorityQueue: mutable.PriorityQueue[(Record, Int)] = new mutable.PriorityQueue[(Record, Int)]()(EntryOrdering)
+        val priorityQueue: mutable.PriorityQueue[(BRecord, Int)] = new mutable.PriorityQueue[(BRecord, Int)]()(EntryOrdering)
         val dataBag = new DataBag(sortedChunks.toVector)
         val contructor = {
           for (i <- Range(0, sortedChunks.size)) {
-            val rec: Option[Record] = dataBag.getItem(i)
+            val rec: Option[BRecord] = dataBag.getItem(i)
             rec match {
               case Some(r) => priorityQueue.enqueue((r, i))
               case None => ()
@@ -88,7 +87,7 @@ package object merger {
           }
         }
 
-        def getMin(): Record = {
+        def getMin(): BRecord = {
           val (rec, i) = priorityQueue.dequeue()
           dataBag.getItem(i) match {
             case Some(r) => (priorityQueue += ((r, i)))
@@ -110,19 +109,18 @@ package object merger {
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
        MergeWithPQ(sortedChunks)
-      //MergeSimple(sortedChunks)
     }
 
     def MergeSimple(sortedChunks: List[IBigFile]): IBigFile = {
-      def getHead(file: IBigFile): Record = file.getRecord(0)
+      def getHead(file: IBigFile): BRecord = file.getRecord(0)
       val output: BigOutputFile = new BigOutputFile(getOutName())
 
       val nChunks = sortedChunks.size
-      val minList: List[Record] = sortedChunks.map(getHead)
+      val minList: List[BRecord] = sortedChunks.map(getHead)
       val idxSeq: Seq[Int] = for (i <- Range(0, nChunks)) yield 0
 
       val arrChunks: ArrayBuffer[IBigFile] = ArrayBuffer.empty //
-      val minArr: ArrayBuffer[Record] = ArrayBuffer.empty
+      val minArr: ArrayBuffer[BRecord] = ArrayBuffer.empty
       val idxArr: ArrayBuffer[Int] = ArrayBuffer.empty
 
       arrChunks ++= sortedChunks
@@ -130,7 +128,7 @@ package object merger {
       idxArr ++= idxSeq
 
       def getMinRec() = minArr.minBy(rec => rec.key)
-      def updateMinArray(minRec: Record) = {
+      def updateMinArray(minRec: BRecord) = {
         val idxMinChunk: Int = minArr.indexOf(minRec) // idxMin represents the selected chunk
         idxArr(idxMinChunk) = idxArr(idxMinChunk) + 1
         if (arrChunks(idxMinChunk).numOfRecords <= idxArr(idxMinChunk)) {
@@ -175,21 +173,18 @@ package object merger {
         }
       }
 
-      def sampling(sample: IBigFile, num: Int) : List[String] = {
-        val keyLimitMin = 0.toChar.toString * 10
-        val keyLimitMax = 126.toChar.toString * 10
+      def sampling(sample: IBigFile, num: Int) : List[ByteArray] = {
+        val keyLimitMin = StringToByteArray(0.toChar.toString * 10)
+        val keyLimitMax = StringToByteArray(126.toChar.toString * 10)
         val blockSize = sample.numOfRecords / num
-        val midKeys: List[String] = (for (i <- 1 until num) yield {
+        val midKeys: List[ByteArray] = (for (i <- 1 until num) yield {
           sample.getRecord(i * blockSize)._1
         }).toList
-        keyLimitMin +: keyLimitMax +: midKeys
+        val lst = keyLimitMin +: midKeys :+ keyLimitMax
+        lst
       }
 
-      println("divide ENTRY")
-      println("divide -sampling")
-      val keys: List[String] = sampling(chunks.head, num)
-      println("divide -rearrange")
-
+      val keys: List[ByteArray] = sampling(chunks.head, num)
       def split(file :IBigFile) : List[IBigFile] = {
         val intervals = Splitter.makePartitionsListFromKey(file, keys)
         intervals.map(t => new PartialFile(file,t._1, t._2) )
@@ -207,3 +202,4 @@ package object merger {
     }
   }
 }
+
