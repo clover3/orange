@@ -220,7 +220,11 @@ package object sorter {
       val input: List[IBigFile] = inputDirs.map(d => new MultiFile(List(d)))
       //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
-      val sorter: ChunkSorter = new MultiThreadSorter(rs, tempDir)
+      val sorttempDir = tempDir + "/" + "sorted"
+      val d = new File(sorttempDir)
+      if(!d.exists)
+        d.mkdir()
+      val sorter: ChunkSorter = new MultiThreadSorter(rs, sorttempDir)
       // operate on
       sorter.generateSortedChunks(input)
     }
