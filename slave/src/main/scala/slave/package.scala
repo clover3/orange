@@ -74,7 +74,7 @@ package object slave {
     }
 
     def merge(fileList : List[IBigFile]) : IBigFile = {
-      val merger : ChunkMerger = new SingleThreadMerger()
+      val merger : ChunkMerger = new SingleThreadMerger(outputDir)
       merger.MergeBigChunk(fileList)
     }
 

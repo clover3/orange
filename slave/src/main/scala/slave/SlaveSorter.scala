@@ -218,9 +218,6 @@ package object sorter {
     def run(inputDirs: List[String], tempDir : String): List[Future[IBigFile]] = {
       // initializing structs
       val input: List[IBigFile] = inputDirs.map(d => new MultiFile(List(d)))
-      var d = new File(tempDir)
-      if (!d.exists)
-        d.mkdir()
       //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
       val sorter: ChunkSorter = new MultiThreadSorter(rs, tempDir)

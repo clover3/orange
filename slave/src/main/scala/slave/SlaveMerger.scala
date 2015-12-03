@@ -1,4 +1,7 @@
 package slave
+
+import java.io.File
+
 import common.future._
 
 import slave.SlaveConfig.Config
@@ -16,7 +19,7 @@ import scala.math.Ordering
 
 package object merger {
 
-  val sortedFileName = "sorted"
+
   trait MergePQ {
     def getMin(): Record
 
@@ -29,7 +32,11 @@ package object merger {
   }
 
   // TODO OS might not keep pages of the files, It might be better to read sequence of data
-  class SingleThreadMerger extends ChunkMerger {
+  class SingleThreadMerger (val outputdir : String) extends ChunkMerger {
+    var d = new File(outputdir)
+    if (!d.exists)
+      d.mkdir()
+    val sortedFileName = outputdir + "/" + "sorted"
     var index = 0
     def getOutName(): String = {
       this.synchronized {
@@ -152,7 +159,10 @@ package object merger {
     }
   }
 
-  class DualThreadMerger extends ChunkMerger {
+  class DualThreadMerger(val outputdir : String) extends ChunkMerger {
+    var d = new File(outputdir)
+    if (!d.exists)
+      d.mkdir()
     def divide(chunks: List[IBigFile])(implicit config:Config): List[List[IBigFile]] = {
       val num = config.numMergeThread
       def rearrange[A](listList : List[List[A]]) : List[List[A]] = {
@@ -188,7 +198,7 @@ package object merger {
     }
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): IBigFile = {
-      val merger = new SingleThreadMerger;
+      val merger = new SingleThreadMerger(outputdir);
       val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)

@@ -1,5 +1,6 @@
 package slave
 
+import java.io.File
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
@@ -138,6 +139,9 @@ trait newShuffleSock {
 
 object newShuffleSock {
   def apply(partitions: Partitions, tempDir : String, socket : PartitionSocket) = new newShuffleSock {
+    var d = new File(tempDir)
+    if (!d.exists)
+      d.mkdir()
     val ipList = partitions.map { _._1 }
     val p = Promise[Unit]()
     val slaveServerSock = new SlaveServerSock(ipList, tempDir, socket, p)

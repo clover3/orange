@@ -54,7 +54,7 @@ class SorterSuite extends FunSuite {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathLocal)
     val rs:ResourceChecker = new ResourceChecker()
-    val merger: ChunkMerger = new SingleThreadMerger
+    val merger: ChunkMerger = new SingleThreadMerger(".")
     val sorter = new SingleThreadSorter(rs, tempDir)
 
     // operate on
@@ -73,7 +73,7 @@ class SorterSuite extends FunSuite {
     val rs:ResourceChecker = new ResourceChecker()
 
     val sorter = new MultiThreadSorter(rs, tempDir)
-    val merger: ChunkMerger = new SingleThreadMerger
+    val merger: ChunkMerger = new SingleThreadMerger(".")
 
     // operate on
     val (sortedChunks, timeSort) = profile{
@@ -89,7 +89,7 @@ class SorterSuite extends FunSuite {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathServerBig)
     val rs:ResourceChecker = new ResourceChecker()
-    val merger: ChunkMerger = new DualThreadMerger()
+    val merger: ChunkMerger = new DualThreadMerger(".")
     val sorter = new SingleThreadSorter(rs, tempDir)
 
     // operate on
@@ -107,7 +107,7 @@ class SorterSuite extends FunSuite {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathServerBig)
     val rs:ResourceChecker = new ResourceChecker()
-    val merger: ChunkMerger = new DualThreadMerger()
+    val merger: ChunkMerger = new DualThreadMerger(".")
     val sorter = new MultiThreadSorter(rs, tempDir)
 
     // operate on
