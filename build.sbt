@@ -1,6 +1,4 @@
 
-
-
 libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
 
 libraryDependencies += "io.netty" % "netty-all" % "4.0.4.Final"
@@ -28,6 +26,7 @@ lazy val master = (project in file("master")).
   settings(commonSettings: _*).
   settings(
     name := "orangeMaster"
+    , mainClass in Compile := Some("master.Main")
   ).dependsOn(common)
 
 
@@ -35,6 +34,12 @@ lazy val slave = (project in file("slave")).
   settings(commonSettings: _*).
   settings(
     name := "orangeSlave"
+    , mainClass in Compile := Some("slave.Main")
   ).dependsOn(common)
 
-
+mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+  {
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x => MergeStrategy.first
+  }
+}

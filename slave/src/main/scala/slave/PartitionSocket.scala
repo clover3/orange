@@ -30,28 +30,22 @@ import scala.annotation.tailrec
     }
     def checkMasterRequest(ip: String, ipP : Promise[String]): Unit = {
       val buffer = ByteBuffer.allocate(16)
-      println(ip)
       buffer.put((ip + "\n").getBytes())
-      println(buffer)
       buffer.flip()
       sock.write(buffer)
-      print("checkMasterRequest write")
       buffer.flip()
       val nbytes = sock.read(buffer)
       buffer.flip()
       val bytea : Array[Byte] = new Array(nbytes)
       buffer.get(bytea)
       val s = new String(bytea, "ASCII").trim()
-      print("checkMasterRequest : " + s)
+      println("checkMasterRequest : " + s)
       ipP.complete(Success(s))
     }
 
     def sendfinish(f: Future[Unit], endp : Promise[Unit]): Unit = {
-      print(f.isCompleted)
-      
       f onSuccess {
         case u =>
-          println("sendFN start")
           val buffer = ByteBuffer.allocate(3)
           buffer.put("FN\n".getBytes())
           buffer.flip()

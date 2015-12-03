@@ -53,9 +53,7 @@ package object master {
       }.toList
       slaveThread.foreach(_.join())
       SendPartitions()
-      println("start recvRequest")
       recvRequest()
-      println("end recvRequest")
       close()
     }
 
@@ -88,7 +86,6 @@ package object master {
     }
 
     def parsingRecv(buffer : ByteBuffer, num : Int) : List[String] = {
-      buffer.flip()
       var i = 0
       var s = ""
       var sL : List[String] = Nil
@@ -112,9 +109,12 @@ package object master {
         //val buffer = ByteBuffer.allocate(100)
         //var nbytes = 0
         //var i = 0
+        println("read waiting ........................." + buffer, id)
         sSock.read(buffer)
-        val num = buffer.array().lastIndexOf(0xa)
-        var parseS = parsingRecv(buffer, num + 1)
+        buffer.flip()
+        val num = buffer.array().lastIndexOf(0xa, buffer.limit) + 1
+        var parseS = parsingRecv(buffer, num)
+        println("parseS : " + parseS, id)
         if(parseS.nonEmpty) {
           if (parseS.contains("OK")) {
             sockPromises(id).complete(Success(()))
@@ -128,9 +128,8 @@ package object master {
           }
           parseS.map {
               case s =>
-              print(Iplist)
               val sip = (Iplist.find(_._2 == s))
-              println(sip)
+              println(sip, id)
               for (sopt <- sip) yield {
                 sockPromises(sopt._1).future onSuccess {
                   case u =>
@@ -138,7 +137,7 @@ package object master {
                     buffer.put(sopt._2.getBytes())
                     buffer.flip()
                     sSock.write(buffer)
-                    println("send S " + sopt._2 + " : " + sopt._1)
+                    println("send S " + sopt._1 + " -> " + id)
                 }
               }
             }
@@ -146,26 +145,21 @@ package object master {
     }
 
     def recvRequest() : Unit = {
-      println("before fList")
       val fList = id2Slave.toList.map {
         case(id, slave) => Future {
           val b = ByteBuffer.allocate(100)
           @tailrec def loopfunction(id: slaveID, sock: SocketChannel, b : ByteBuffer): Unit = {
             if (finishPromises(id).isCompleted) {
-              println("finishPromises is Completed")
             }
             else {
               recvSlaveRequest(id, sock, b)
               loopfunction(id, sock, b)
             }
           }
-          println("before loopfunction")
           loopfunction(id, slave.sock, b)
         }
       }
-      println("before result")
       Await.result(all(fList), Duration.Inf)
-      println("after result")
     }
 
     // comment
@@ -174,7 +168,6 @@ package object master {
       val partitions = sorting_Key()
       println("partitions befor write :  "  + partitions)
       id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.write(partitions.toByteBuffer))
-      println("sendPartitions end")
     }
 
     def close(): Unit ={
