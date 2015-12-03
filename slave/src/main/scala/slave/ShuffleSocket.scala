@@ -86,7 +86,8 @@ trait ShuffleSocket {
   val socket: PartitionSocket
   lazy val slaveNum: Int = ipList.length
   var basePort: Int = 5000
-  val p = Promise[Unit]()
+  val masterPromise : Promise[Unit]
+  val endPromise : Promise[Unit] = Promise[Unit]()
   lazy val ipPortList: List[(String, Int)] = ipList.map { ip: String => {
     basePort = basePort + 1; (ip, basePort)
   }
@@ -138,9 +139,10 @@ trait newShuffleSock {
 object newShuffleSock {
   def apply(partitions: Partitions, tempDir : String, socket : PartitionSocket) = new newShuffleSock {
     val ipList = partitions.map { _._1 }
-    val slaveServerSock = new SlaveServerSock(ipList, tempDir, socket)
+    val p = Promise[Unit]()
+    val slaveServerSock = new SlaveServerSock(ipList, tempDir, socket, p)
     val serverThread = new Thread(slaveServerSock)
-    val slaveClientSock = new SlaveClientSock(ipList, tempDir, socket)
+    val slaveClientSock = new SlaveClientSock(ipList, tempDir, socket, p)
     val clientThread = new Thread(slaveClientSock)
     serverThread.start()
     clientThread.start()
@@ -309,7 +311,7 @@ class ServerHandler(ip: String, byteconsumer: ByteConsumer) extends ChannelInbou
 }
 
 /* I need one serverSock.. (maybe..?) */
-class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket) extends ShuffleSocket with Runnable {
+class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket, val masterPromise : Promise[Unit]) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveServerSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- serverList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -348,7 +350,9 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket
             }
           })
         val cf: ChannelFuture = bs.bind(port).sync()
-        cf.channel().closeFuture().sync()
+        val cfchannel = cf.channel()
+        socket.sendok(masterPromise)
+        cfchannel.closeFuture().sync()
       } catch {
         case e: Throwable => e.printStackTrace()
       } finally {
@@ -357,8 +361,10 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket
         childGroup.shutdownGracefully()
       }
     }
+    else {
+      socket.sendok(masterPromise)
+    }
 
-   // socket.sendok(p)
   }
 }
 
@@ -379,7 +385,7 @@ class myClientHandler(c: SocketChannel, byteConsumer: ByteConsumer) extends Chan
 }
 
 /* I need many slaveSock... (maybe..?) */
-class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket) extends ShuffleSocket with Runnable {
+class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket : PartitionSocket, val masterPromise : Promise[Unit]) extends ShuffleSocket with Runnable {
   val LOG = LogFactory.getLog(classOf[SlaveClientSock].getName)
   val sockPromises: Map[String, Promise[Channel]] =
     (for( ip <- clientList ) yield { (ip._1 ,Promise[Channel]()) }).toMap
@@ -394,7 +400,6 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket
   def run() = {
     if (clientList.nonEmpty) {
       try {
-        Thread.sleep(1000)
         val b: Bootstrap = new Bootstrap()
         b.group(group)
           .channel(classOf[NioSocketChannel])
@@ -409,22 +414,20 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket
 
 
 
-        val cflist = for (ip <- clientList) yield {
-          Future {
-            val p: Promise[Unit] = Promise[Unit]()
+        val clist = for (ip <- clientList) yield {
+            val p : Promise[String] = Promise[String]()
             socket.checkMasterRequest(ip._1, p)
-            Await.result(p.future, Duration.Inf)
-            val cf: ChannelFuture = b.connect(ip._1, ip._2).sync()
-            val ipStr = ip._1
+            val ipString = Await.result(p.future, Duration.Inf)
+            val cf: ChannelFuture = b.connect(ipString, ip._2).sync()
             val c = cf.channel()
-            sockPromises(ipStr).complete(Success(c))
+            sockPromises(ipString).complete(Success(c))
             c
-          }
         }
 
-        socket.sendfinish(p.future)
 
-        val clist = Await.result(all(cflist), Duration.Inf)
+        //val clist = Await.result(all(cflist), Duration.Inf)
+        
+        socket.sendfinish(masterPromise.future, endPromise)
 
         for (cf <- clist ) {
           cf.closeFuture().sync()
@@ -433,8 +436,14 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket
         case e: Throwable => e.printStackTrace()
       } finally {
         LOG.info("cf escape")
+        Await.result(endPromise.future, Duration.Inf)
         group.shutdownGracefully()
       }
+    }
+    else {
+      print("FN start")
+      socket.sendfinish(masterPromise.future, endPromise)
+      Await.result(endPromise.future, Duration.Inf)
     }
   }
 }

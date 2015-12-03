@@ -10,6 +10,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Sorting}
 import scala.concurrent.ExecutionContext.Implicits.global
+import master.future._
+import scala.annotation.tailrec
 
 package object master {
   
@@ -52,7 +54,9 @@ package object master {
       }.toList
       slaveThread.foreach(_.join())
       SendPartitions()
+      println("start recvRequest")
       recvRequest()
+      println("end recvRequest")
       close()
     }
 
@@ -84,48 +88,65 @@ package object master {
       pSeq.toList
     }
 
-    def recvSlaveRequest (id : slaveID, sSock : SocketChannel) : Unit = {
+    def recvSlaveRequest (id : slaveID, sSock : SocketChannel)   = {
         val buffer = ByteBuffer.allocate(15)
-        sSock.read(buffer)
-        buffer.clear()
-        val s = new String(buffer.array(), "ASCII")
+        var nbytes = 0
+        var i = 0
+        nbytes = sSock.read(buffer)
+        val s = new String(buffer.array(), "ASCII").trim()
+        println(s.length)
+        println("recvSlaveRequest : " + s)
+        if(s.length != 0) {
         if (s == "OK") {
           sockPromises(id).complete(Success(()))
+        println("recvSlaveRequest OK id  : " + id)
         }
         else if (s == "FN") {
           finishPromises(id).complete(Success(()))
+        println("recvSlaveRequest FN id  : " + id)
         }
-        else {
+        else if (s.length > 2 && s.length < 16){
+        print(Iplist)
         val sip = (Iplist.find(_._2 == s))
+        println(sip)
         for (sopt <- sip) yield {
-          if (sockPromises(sopt._1).isCompleted) {
-            buffer.put("S".getBytes())
+          sockPromises(sopt._1).future onSuccess {
+            case u => 
+            buffer.clear()
+            buffer.put(sopt._2.getBytes())
+            buffer.flip()
             sSock.write(buffer)
+            println("send S " + sopt._2 + " : " + sopt._1)
           }
-          else {
-            buffer.put("U".getBytes())
-            sSock.write(buffer)
-          }
-          throw new Exception("strange string is coming from" + sSock)
         }
       }
+        
+      else {
+          throw new Exception("strange string is " + s)
+      }
+        }
     }
 
     def recvRequest() : Unit = {
+      println("before fList")
       val fList = id2Slave.toList.map {
         case(id, slave) => Future {
-          def loopfunction(id: slaveID, sock: SocketChannel): Unit = {
+          @tailrec def loopfunction(id: slaveID, sock: SocketChannel): Unit = {
             if (finishPromises(id).isCompleted) {
+              println("finishPromises is Completed")
             }
             else {
               recvSlaveRequest(id, sock)
               loopfunction(id, sock)
             }
           }
+          println("before loopfunction")
           loopfunction(id, slave.sock)
         }
       }
+      println("before result")
       Await.result(all(fList), Duration.Inf)
+      println("after result")
     }
 
     // comment
@@ -134,6 +155,7 @@ package object master {
       val partitions = sorting_Key()
       println("partitions befor write :  "  + partitions)
       id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.write(partitions.toByteBuffer))
+      println("sendPartitions end")
     }
 
     def close(): Unit ={

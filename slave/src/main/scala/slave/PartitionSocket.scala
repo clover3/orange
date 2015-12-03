@@ -9,6 +9,7 @@ package socket {
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
+import scala.annotation.tailrec
 
   class PartitionSocket(val master: String) {
     val (masterIPAddr, masterPort): (String, Int) = {
@@ -27,36 +28,47 @@ import scala.util.Success
       sock.read(buffer)
       buffer
     }
-
-    def checkMasterRequest(ip: String, ok: Promise[Unit]): Unit = {
+    def checkMasterRequest(ip: String, ipP : Promise[String]): Unit = {
       val buffer = ByteBuffer.allocate(15)
+      println(ip)
       buffer.put(ip.getBytes())
+      println(buffer)
+      buffer.flip()
       sock.write(buffer)
-      buffer.clear()
-      sock.read(buffer)
-      val s = buffer.get(0).toString
-      if (s == "83") {
-        ok.complete(Success(()))
-      }
-      else {
-        checkMasterRequest(ip, ok)
-      }
+      print("checkMasterRequest write")
+      buffer.flip()
+      val nbytes = sock.read(buffer)
+      buffer.flip()
+      val bytea : Array[Byte] = new Array(nbytes)
+      buffer.get(bytea)
+      val s = new String(bytea, "ASCII").trim()
+      print("checkMasterRequest : " + s)
+      ipP.complete(Success(s))
     }
 
-    def sendfinish(f: Future[Unit]): Unit = {
+    def sendfinish(f: Future[Unit], endp : Promise[Unit]): Unit = {
+      print(f.isCompleted)
+      
       f onSuccess {
         case u =>
+          println("sendFN start")
           val buffer = ByteBuffer.allocate(2)
           buffer.put("FN".getBytes())
+          buffer.flip()
           sock.write(buffer)
+          endp.complete(Success(()))
+          println("send FN")
       }
+      
     }
 
     def sendok(p : Promise[Unit]): Unit = {
       val buffer = ByteBuffer.allocate(2)
       buffer.put("OK".getBytes())
+      buffer.flip()
       sock.write(buffer)
       p.complete(Success(()))
+      println("send OK")
     }
   }
 }
