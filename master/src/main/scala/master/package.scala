@@ -1,9 +1,19 @@
 import java.net._
-import java.nio._
-import java.nio.channels._
+import java.nio.ByteBuffer
+import java.util
+
 
 import common.typedef._
 import common.future._
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.buffer.{Unpooled, ByteBuf}
+import io.netty.channel._
+import io.netty.channel.nio.{NioEventLoopGroup, NioEventLoop}
+import io.netty.channel.socket.nio.NioServerSocketChannel
+import io.netty.handler.codec.{ByteToMessageDecoder, ByteToMessageCodec}
+import io.netty.handler.logging.{LogLevel, LoggingHandler}
+import io.netty.channel.socket._
+import org.apache.commons.logging.{Log, LogFactory}
 
 import scala.Array._
 import scala.concurrent.duration.Duration
@@ -13,56 +23,144 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.annotation.tailrec
 
 package object master {
-  
-
-
 
   type slaveID = Int
+  var sampleEnd = false
 
+  class Buf2Decode(val LOG : Log, val id : Int, val sockPromises : Map[slaveID, Promise[Unit]], val finishPromises : Map[slaveID, Promise[Unit]], val ipList : Map[String, slaveID]) extends ByteToMessageDecoder {
+    override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
+      val expectLen = totalSampleKeyPerSlave*10 + 8
+      if (sampleEnd) {
+        println(byteBuf.readableBytes())
+        if(byteBuf.readableBytes() < 3) return
+        else {
+          byteBuf.markReaderIndex()
+          var check = byteBuf.readByte()
+          if(check == 70) {
+            byteBuf.readBytes(2)
+            finishPromises(id).complete(Success(()))
+            LOG.info("recvSlaveRequest FN id : " + id)
+            return
+          }
+          else if(byteBuf.readableBytes() > 16) {
+            var s = ""
+            var check2 = false
+            while (check != 0xa && byteBuf.readableBytes() > 0) {
+              s = s + new String(Array(check))
+              check = byteBuf.readByte()
+              if (check == 0xa)
+                check2 = true
+            }
+            if (check2 == true) {
+              sockPromises(ipList(s)).future onSuccess {
+                case u =>
+                  val buffer = ByteBuffer.allocate(15)
+                  buffer.put(s.getBytes())
+                  buffer.flip()
+                  val buf = Unpooled.wrappedBuffer(buffer)
+                  channelHandlerContext.writeAndFlush(buf)
+                  LOG.info("Send S " + s + " ->" + id)
+              }
+            }
+            else {
+              byteBuf.resetReaderIndex()
+            }
+            return
+          }
+        }
+      }
+      else if(byteBuf.readableBytes() < expectLen) {
+        return
+      }
+      else {
+        println(byteBuf)
+        val bytes : Array[Byte]= new Array(byteBuf.readableBytes())
+        byteBuf.readBytes(bytes)
+        val buf = ByteBuffer.wrap(bytes)
+        list.add(buf)
+        byteBuf.resetWriterIndex()
+        println(byteBuf)
+        sampleEnd = true
+      }
+    }
+  }
+  class ServerHandler(val num : Int, val id2buf : Map[slaveID, Promise[ByteBuffer]]) extends ChannelInboundHandlerAdapter {
+    override def channelRead(channelHandlerContext: ChannelHandlerContext, msg:Object) = {
+      val vB = msg.asInstanceOf[ByteBuffer]
+      id2buf(num).complete(Success(vB))
+
+    }
+    override def channelReadComplete(channelHandlerContext: ChannelHandlerContext): Unit = {
+
+    }
+
+    override def exceptionCaught(channelHandlerContext: ChannelHandlerContext, cause: Throwable): Unit = {
+      cause.printStackTrace()
+      channelHandlerContext.close()
+    }
+  }
 
   class Master (val slaveNum : Int) {
-    var id2Slave : Map[slaveID, SlaveManager] = Map.empty
-    def Iplist : List[(slaveID, String)] = id2Slave.toList.map{case (id, slave) => (id, slave.ip)} // save IPs from
+    val LOG = LogFactory.getLog(classOf[Master].getName)
+    val id2Slave : Map[slaveID, Promise[SocketChannel]] = (for(i <- 0 until slaveNum) yield {
+      (i, Promise[SocketChannel]())
+    }).toMap
+    val id2SlaveByteBuf : Map[slaveID, Promise[ByteBuffer]] = (for(i <- 0 until slaveNum) yield {
+      (i, Promise[ByteBuffer]())
+    }).toMap
+    var Iplist : Map[String, slaveID] = Map.empty // save IPs from
     val port : Int = 5959
-    val server = ServerSocketChannel.open()
-    val sock  = server.socket()
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
     val sockPromises: Map[slaveID, Promise[Unit]] =
       (for(i <- 0 until slaveNum) yield { (i, Promise[Unit]())}).toMap
     val finishPromises: Map[slaveID, Promise[Unit]] =
       (for(i <- 0 until slaveNum) yield { (i, Promise[Unit]())}).toMap
-
+    val parentGroup = new NioEventLoopGroup(1)
+    val childGroup = new NioEventLoopGroup(slaveNum)
+    var acceptNum = 0
     def start() {
-
-      sock.bind(new InetSocketAddress(port))
-
-      println("Listening...")
-      val slaveThread : List[Thread] = {
-        for (acceptNum <- 0 until slaveNum) 
-        yield {
-          val client = server.accept()
-
-          val addrStr = client.socket().getRemoteSocketAddress().toString()
-          println(addrStr.toIPList.toIPString)
-          val slave = new SlaveManager(acceptNum, client, addrStr.toIPList.toIPString)
-          id2Slave = id2Slave + (acceptNum -> slave)
-          val t = new Thread(slave)
-          t.start()
-          t
-        }
-      }.toList
-      slaveThread.foreach(_.join())
-      SendPartitions()
-      recvRequest()
-      close()
+      try {
+        val bs : ServerBootstrap = new ServerBootstrap()
+        bs.group(parentGroup, childGroup)
+        .channel(classOf[NioServerSocketChannel])
+        .handler(new LoggingHandler(LogLevel.INFO))
+        .childHandler(new ChannelInitializer[SocketChannel] {
+          override def initChannel(c: SocketChannel): Unit = {
+            val ip = c.remoteAddress().toString.toIPList.toIPString
+            LOG.info(ip)
+            id2Slave(acceptNum).complete(Success(c))
+            sockPromises(acceptNum).complete(Success(()))
+            Iplist = Iplist + (ip -> acceptNum)
+            val cp : ChannelPipeline = c.pipeline()
+            cp.addLast(new Buf2Decode(LOG, acceptNum, sockPromises, finishPromises, Iplist))
+            cp.addLast(new ServerHandler(acceptNum, id2SlaveByteBuf))
+            acceptNum = acceptNum + 1
+          }
+        })
+        val cf : ChannelFuture = bs.bind(port).sync()
+        SendPartitions()
+        val futureList = finishPromises.toList.map{_._2.future}
+        Await.result(all(futureList), Duration.Inf)
+        close()
+      } catch {
+        case e : Throwable => e.printStackTrace()
+      } finally {
+        LOG.info("Master Server end")
+        close()
+      }
     }
 
 
 
     // sorting key and make partiton ( Array[String] -> Partition -> Partitions)
     def sorting_Key () : Partitions = {
-      val keyArray : Array[String] = id2Slave.toList.map{case (id, slave) => slave.ParseBuffer()}.flatten.toArray 
-      val ips = id2Slave.toList.map{case (id, slave) => slave.ip}.toArray
+      val keyArray : Array[String] = id2SlaveByteBuf.toList.map {
+        case (id, bufPromise) =>
+          val buf = Await.result(bufPromise.future, Duration.Inf)
+          println(buf)
+          parseSampleBuffer(buf)._2
+      }.flatten.toArray
+      val ips = Iplist.toList.map{_._1}.toArray
       Sorting.quickSort(keyArray)
       val keyArrLen = keyArray.length
       val ipLen = ips.length
@@ -84,135 +182,26 @@ package object master {
       println("sorting key done")
       pSeq.toList
     }
-
-    def parsingRecv(buffer : ByteBuffer, num : Int) : List[String] = {
-      var i = 0
-      var s = ""
-      var sL : List[String] = Nil
-      while(i < num) {
-        val c = buffer.get()
-        if(c == 0xa){
-          sL = s :: sL
-          s = ""
-        }
-        else {
-          val sc = new String(Array(c))
-          s = s + sc
-        }
-        i = i + 1
-      }
-      buffer.compact()
-      sL
-    }
-
-    def recvSlaveRequest (id : slaveID, sSock : SocketChannel, buffer : ByteBuffer)   = {
-        //val buffer = ByteBuffer.allocate(100)
-        //var nbytes = 0
-        //var i = 0
-        println("read waiting ........................." + buffer, id)
-        sSock.read(buffer)
-        buffer.flip()
-        val num = buffer.array().lastIndexOf(0xa, buffer.limit) + 1
-        var parseS = parsingRecv(buffer, num)
-        println("parseS : " + parseS, id)
-        if(parseS.nonEmpty) {
-          if (parseS.contains("OK")) {
-            sockPromises(id).complete(Success(()))
-            println("recvSlaveRequest OK id  : " + id)
-            parseS = parseS.filterNot(_ == "OK")
-          }
-          if (parseS.contains("FN")) {
-            finishPromises(id).complete(Success(()))
-            println("recvSlaveRequest FN id  : " + id)
-            parseS = parseS.filterNot(_ == "FN")
-          }
-          parseS.map {
-              case s =>
-              val sip = (Iplist.find(_._2 == s))
-              println(sip, id)
-              for (sopt <- sip) yield {
-                sockPromises(sopt._1).future onSuccess {
-                  case u =>
-                    val buffer = ByteBuffer.allocate(15)
-                    buffer.put(sopt._2.getBytes())
-                    buffer.flip()
-                    sSock.write(buffer)
-                    println("send S " + sopt._1 + " -> " + id)
-                }
-              }
-            }
-        }
-    }
-
-    def recvRequest() : Unit = {
-      val fList = id2Slave.toList.map {
-        case(id, slave) => Future {
-          val b = ByteBuffer.allocate(100)
-          @tailrec def loopfunction(id: slaveID, sock: SocketChannel, b : ByteBuffer): Unit = {
-            if (finishPromises(id).isCompleted) {
-            }
-            else {
-              recvSlaveRequest(id, sock, b)
-              loopfunction(id, sock, b)
-            }
-          }
-          loopfunction(id, slave.sock, b)
-        }
-      }
-      Await.result(all(fList), Duration.Inf)
-    }
+    
 
     // comment
     //send partitions for each slaves (Partitions -> buffer)
     def SendPartitions (): Unit = {
       val partitions = sorting_Key()
-      println("partitions befor write :  "  + partitions)
-      id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.write(partitions.toByteBuffer))
-    }
-
-    def close(): Unit ={
-      id2Slave.toList.map{case (id, slave) => slave.sock}.foreach(x=>x.close())
-      server.close()
-    }
-  }
-  
-
-  class SlaveManager (val id : slaveID, val sock : SocketChannel, val ip : String) extends Runnable {
-    /* *********STructure ********
-    readSampleData(buffer -> Key : Array[String], Ip : Array[String]) //read key and ip
-    ->SortingAndMakePartition(d:Array[String],ips :Array[String]) :Sorting keys and Make Partition to each Ip
-         Sort & (Array[String] ->Partition-> Partitions)
-    ->Write(Partitions->buffer) (((In server ,not each thread)))
-
-     */
-
-    val Buffer = ByteBuffer.allocate(1024 * 1024 * 2)
-    //ParseBuffer and Convert to String and Save to Array{string] (Buffer -> samples)_
-    def ParseBuffer() : List[String] = {
-
-      val sample : Sample = parseSampleBuffer(Buffer)
-      val KeyListForRead : List[String] = sample._2
-      KeyListForRead
-    }
-
-    //read key and ip  & save those to Array{string]
-    def readSampleData(buffer : ByteBuffer) : Unit ={
-      buffer.clear()
-      val expectLen = totalSampleKeyPerSlave*10 + 8
-      var i = 0
-      var nbyte = 0
-      while(i <  expectLen) {
-      nbyte = sock.read(buffer)
-      i = i + nbyte
+      id2Slave.toList.foreach {
+        case (id, slavefuture) =>
+          slavefuture.future onSuccess {
+            case c =>
+              println("partitions befor write :  "  + partitions)
+              println(c)
+            c.writeAndFlush(Unpooled.wrappedBuffer(partitions.toByteBuffer))
+          }
       }
     }
 
-                                                                                                                                                                                                                                                                                                              
-    def run()
-    {
-      readSampleData(Buffer)
+    def close(): Unit ={
+      parentGroup.shutdownGracefully()
+      childGroup.shutdownGracefully()
     }
   }
-
-
 }

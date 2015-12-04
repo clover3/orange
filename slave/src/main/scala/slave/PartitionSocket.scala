@@ -53,16 +53,7 @@ import scala.annotation.tailrec
           endp.complete(Success(()))
           println("send FN")
       }
-      
-    }
 
-    def sendok(p : Promise[Unit]): Unit = {
-      val buffer = ByteBuffer.allocate(3)
-      buffer.put("OK\n".getBytes())
-      buffer.flip()
-      sock.write(buffer)
-      p.complete(Success(()))
-      println("send OK")
     }
   }
 }
