@@ -7,3 +7,10 @@ First line : sort memory block size
 Second line : number of processor to use in multi-thread merge process
 3rd line : temporary output path for sorted chunk
 Remaining lines are ignored.
+
+Block Sizes...
+32768
+327680
+983040
+1638400
+3276800
