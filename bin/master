@@ -1,0 +1,26 @@
+#!/usr/bin/python
+
+import argparse
+import subprocess
+import os
+import shlex
+
+def excute(args) :
+  subprocess.Popen(shlex.split(args))
+
+if __name__ == '__main__' :
+  parser = argparse.ArgumentParser(description='script for SD project slave')
+  parser.add_argument("slaveNum", metavar="slaveNum", nargs=1,  help="slave number")
+  
+  args = parser.parse_args()
+  slaveNum = args.slaveNum
+
+  slave_exc = "java -jar "+os.getcwd()+ "/master/target/scala-2.11/orangeMaster-assembly-0.1.0.jar"
+
+
+  if (slaveNum is None) :
+    raise NameError("Argument is strange")
+  argument = " " + slaveNum[0]
+
+  excute(slave_exc + argument)
+

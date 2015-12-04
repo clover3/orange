@@ -1,5 +1,6 @@
 
 import java.net._
+import java.io._
 
 import common.typedef._
 import common.future._
@@ -18,7 +19,7 @@ import scala.util.{Success, Failure}
 package object slave {
 
   class Slave (val master : String, val inputDirs : List[String], val outputDir : String, val tempDir : String)  {
-    val socket = new PartitionSocket(master)
+    lazy val socket = new PartitionSocket(master)
     var inputDir: List[String] = Nil
 
     def getPartition : Partitions = {
@@ -81,6 +82,14 @@ package object slave {
       fileList.foreach(x => println(x))
     }
 
+  
+    def testsorted = {
+      val d = new File(tempDir)
+      d.listFiles.filter(_.isFile).toList.map {
+          case f => new SingleFile(tempDir + "/" + f.getName)
+      }
+    }
+
     def run() = {
       val partitions     : Partitions                   = getPartition
       val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir, socket)
@@ -88,6 +97,8 @@ package object slave {
       val netSortedFiles : List[IBigFile]               = shuffle(sortedFile, partitions, slaveSock)
       val sortedResult   : List[String]                 = merge(netSortedFiles)
       val unit                                          = reportResult(sortedResult)
+//      val testsortedFile : List[IBigFile]               = testsorted
+      val sortedResult   : IBigFile                     = merge(netSortedFiles)
     }
   }
 }

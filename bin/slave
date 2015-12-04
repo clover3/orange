@@ -1,0 +1,42 @@
+#!/usr/bin/python
+
+import argparse
+import subprocess
+import os
+import shlex
+
+def excute(args) :
+  subprocess.Popen(shlex.split(args))
+
+if __name__ == '__main__' :
+  parser = argparse.ArgumentParser(description='script for SD project slave')
+  parser.add_argument("-I", "--inputdir", help="path for input directory", nargs="+")
+  parser.add_argument("-T", "--tempdir", help="path for temp directory", nargs=1)
+  parser.add_argument("-O", "--outputdir", help="path for output directory", nargs=1)
+  parser.add_argument("-t", "--test", help="test", nargs=1)
+  parser.add_argument("master", metavar="master", nargs="*",  help="master address")
+  
+  args = parser.parse_args()
+  inputdir = args.inputdir
+  tempdir = args.tempdir
+  outdir = args.outputdir
+  test = args.test
+
+
+  slave_exc = "java -jar "+os.getcwd()+ "/slave/target/scala-2.11/orangeSlave-assembly-0.1.0.jar"
+
+  if(test is not None) :
+    argument = " 192.168.10.200:5959 -I /scratch1/Orange/30GB -T /scratch1/Orange/temp" + test[0] + " -O /scratch1/Orange/outdir" + test[0]
+    excute(slave_exc + argument)
+
+  else :
+    if (inputdir is None) or (tempdir is None) or (outdir is None) or (args.master is None) :
+      raise NameError("Argument is strange")
+    argument = " " + args.master[0] + " -I "
+    for indir in inputdir : 
+      argument = argument + indir + " "
+    argument = argument + "-T " + tempdir[0] + " "
+    argument = argument + "-O " + outdir[0]
+
+    excute(slave_exc + argument)
+
