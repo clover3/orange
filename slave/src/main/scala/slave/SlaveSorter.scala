@@ -112,7 +112,7 @@ package object sorter {
           val (dataUnsorted,t1)   = profile{ read }
           val (data,t2)           = profile{ sort(dataUnsorted) }
           val (out,t3)            = profile{ write(data) }
-          println("Sort %s read/sort/write=(%d/%d/%d)".format(outfileName, t1,t2,t3))
+          println("Completed Sorting %s : Elapsed %d".format(outfileName, t1+t2+t3))
           out.toInputFile
         }
         Await.result(f, Duration.Inf)

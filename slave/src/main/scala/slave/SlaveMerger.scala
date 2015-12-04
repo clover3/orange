@@ -46,9 +46,6 @@ package object merger {
     }
 
     def MergeWithPQ(sortedChunks: List[IBigFile]): BigOutputFile = {
-      val name = getOutName()
-      val output: BigOutputFile = new BigOutputFile(name)
-
       class DataBag(sources: Vector[IBigFile]) {
         val cursorArray: ArrayBuffer[Int] = ArrayBuffer.empty ++ (for (i <- Range(0, sources.size)) yield 0)
 
@@ -69,15 +66,15 @@ package object merger {
           })
         }
       }
-
       class SimplePQ(sortedChunks: List[IBigFile]) extends MergePQ {
+
         object EntryOrdering extends Ordering[(BRecord, Int)] {
           def compare(a: (BRecord, Int), b: (BRecord, Int)) = BAOrdering.compare(b._1._1, a._1._1)
         }
 
         val priorityQueue: mutable.PriorityQueue[(BRecord, Int)] = new mutable.PriorityQueue[(BRecord, Int)]()(EntryOrdering)
         val dataBag = new DataBag(sortedChunks.toVector)
-        val contructor = {
+        val constructor = {
           for (i <- Range(0, sortedChunks.size)) {
             val rec: Option[BRecord] = dataBag.getItem(i)
             rec match {
@@ -99,68 +96,80 @@ package object merger {
         def isEmpty: Boolean = priorityQueue.isEmpty
       }
 
+      val name = getOutName()
+      val output: BigOutputFile = new BigOutputFile(name)
       val pq: MergePQ = new SimplePQ(sortedChunks)
+      val totalLen = sortedChunks.foldRight(0) { (chunk, sum) => sum + chunk.numOfRecords }
+      val unit = 1000000
+
+      val nFinal = (totalLen + unit - 1) / unit
+      def printProgress(nMerged: Int) = {
+        val nDone = nMerged / unit
+        val nRemain = nFinal - nDone
+        println(name + " : " + "=" * nDone + " " * nRemain + "|")
+      }
+
       var n = 0
       while (!pq.isEmpty) {
         output.appendRecord(pq.getMin())
-        val unit = 1000000
-        if( n % unit == 0)
-          println(name + " : " + "=" * (n / unit) )
-        n = n + 1
+        if (n % unit == 0) {
+          printProgress(n)
+          n = n + 1
+        }
       }
-      output.close()
-      output
+        output.close()
+        output
     }
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): List[String] = {
-       val outfile = MergeWithPQ(sortedChunks)
-      List(outfile.outputPath)
-    }
+        val outfile = MergeWithPQ(sortedChunks)
+        List(outfile.outputPath)
+      }
 
     def MergeSimple(sortedChunks: List[IBigFile]): IBigFile = {
-      def getHead(file: IBigFile): BRecord = file.getRecord(0)
-      val output: BigOutputFile = new BigOutputFile(getOutName())
+        def getHead(file: IBigFile): BRecord = file.getRecord(0)
+        val output: BigOutputFile = new BigOutputFile(getOutName())
 
-      val nChunks = sortedChunks.size
-      val minList: List[BRecord] = sortedChunks.map(getHead)
-      val idxSeq: Seq[Int] = for (i <- Range(0, nChunks)) yield 0
+        val nChunks = sortedChunks.size
+        val minList: List[BRecord] = sortedChunks.map(getHead)
+        val idxSeq: Seq[Int] = for (i <- Range(0, nChunks)) yield 0
 
-      val arrChunks: ArrayBuffer[IBigFile] = ArrayBuffer.empty //
-      val minArr: ArrayBuffer[BRecord] = ArrayBuffer.empty
-      val idxArr: ArrayBuffer[Int] = ArrayBuffer.empty
+        val arrChunks: ArrayBuffer[IBigFile] = ArrayBuffer.empty //
+        val minArr: ArrayBuffer[BRecord] = ArrayBuffer.empty
+        val idxArr: ArrayBuffer[Int] = ArrayBuffer.empty
 
-      arrChunks ++= sortedChunks
-      minArr ++= minList
-      idxArr ++= idxSeq
+        arrChunks ++= sortedChunks
+        minArr ++= minList
+        idxArr ++= idxSeq
 
-      def getMinRec() = minArr.minBy(rec => rec.key)
-      def updateMinArray(minRec: BRecord) = {
-        val idxMinChunk: Int = minArr.indexOf(minRec) // idxMin represents the selected chunk
-        idxArr(idxMinChunk) = idxArr(idxMinChunk) + 1
-        if (arrChunks(idxMinChunk).numOfRecords <= idxArr(idxMinChunk)) {
-          minArr.remove(idxMinChunk)
-          idxArr.remove(idxMinChunk)
-          arrChunks.remove(idxMinChunk)
+        def getMinRec() = minArr.minBy(rec => rec.key)
+        def updateMinArray(minRec: BRecord) = {
+          val idxMinChunk: Int = minArr.indexOf(minRec) // idxMin represents the selected chunk
+          idxArr(idxMinChunk) = idxArr(idxMinChunk) + 1
+          if (arrChunks(idxMinChunk).numOfRecords <= idxArr(idxMinChunk)) {
+            minArr.remove(idxMinChunk)
+            idxArr.remove(idxMinChunk)
+            arrChunks.remove(idxMinChunk)
+          }
+          else
+            minArr(idxMinChunk) = arrChunks(idxMinChunk).getRecord(idxArr(idxMinChunk))
         }
-        else
-          minArr(idxMinChunk) = arrChunks(idxMinChunk).getRecord(idxArr(idxMinChunk))
-      }
-      @tailrec
-      def mergeIteration: Unit = {
-        if (minArr.isEmpty)
-          return
+        @tailrec
+        def mergeIteration: Unit = {
+          if (minArr.isEmpty)
+            return
 
-        val minRec = getMinRec()
-        output.appendRecord(minRec)
+          val minRec = getMinRec()
+          output.appendRecord(minRec)
 
-        updateMinArray(minRec)
+          updateMinArray(minRec)
 
+          mergeIteration
+        }
         mergeIteration
+        output.close()
+        output.toInputFile
       }
-      mergeIteration
-      output.close()
-      output.toInputFile
-    }
   }
 
   class DualThreadMerger(val outputdir : String) extends ChunkMerger {
