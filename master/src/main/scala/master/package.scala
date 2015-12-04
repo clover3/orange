@@ -37,10 +37,10 @@ package object master {
         else {
           byteBuf.markReaderIndex()
           var check = byteBuf.readByte()
-          if(check == 53) {
+          if(check == 79) {
             byteBuf.readBytes(2)
-            finishPromises(id).complete(Success(()))
-            LOG.info("recvSlaveRequest FN id : " + id)
+            sockPromises(id).complete(Success(()))
+            LOG.info("recvSlaveRequest OK id : " + id)
             return
           }
           else if(check == 70) {
@@ -137,10 +137,11 @@ package object master {
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(new ChannelInitializer[SocketChannel] {
           override def initChannel(c: SocketChannel): Unit = {
+            if(acceptNum == slaveNum)
+              return
             val ip = c.remoteAddress().toString.toIPList.toIPString
             LOG.info(ip)
             id2Slave(acceptNum).complete(Success(c))
-            sockPromises(acceptNum).complete(Success(()))
             Iplist = Iplist + (ip -> acceptNum)
             val cp : ChannelPipeline = c.pipeline()
             cp.addLast(new Buf2Decode(LOG, acceptNum, sockPromises, finishPromises))
