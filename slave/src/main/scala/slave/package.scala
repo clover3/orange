@@ -9,11 +9,12 @@ import slave.sorter.SlaveSorter
 import slave.Sampler._
 import slave.socket._
 
+
 import scala.concurrent.{Promise, Future, Await}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
-
+import scala.async.Async.{async, await}
 
 
 package object slave {
@@ -58,7 +59,6 @@ package object slave {
               p.complete(Success())
             case Failure(e) => println("I'm in fail " + e.getMessage)
           }
-
           futureFile onComplete sendFile
           p.future
         }
@@ -71,15 +71,24 @@ package object slave {
       def end(slaveSock : newShuffleSock,f:Future[List[Unit]] ) = {
         f onComplete { t => slaveSock.death() }
       }
-      def extractMyPart(sortedFile : List[Future[IBigFile]]) : List[IBigFile] = {
-        ???
+      def extractMyPart(sortedFile : List[Future[IBigFile]]) : Future[List[IBigFile]] = async {
+        val fileList : List[IBigFile] = await { all(sortedFile) }
+        val filePartList= fileList.map(f => (f,splitFile(f).filter(t=>t._1== myIp)) )
+        def toPartialFiles(file:IBigFile, parts: List[(String,Int,Int)] ) = {
+          parts.map(t => new PartialFile(file, t._2, t._3) )
+        }
+        val partialFileList = filePartList.map(t => toPartialFiles(t._1, t._2) ).flatten
+        partialFileList
       }
 
       val sendFuture = splitAndSend(sortedFile)
       val recvFuture = Future{ recv(recvList) }
       recvFuture onComplete { _ => end(slaveSock, sendFuture) }
+
+      val myFile = Await.result(extractMyPart(sortedFile), Duration.Inf)
       val recvFile = Await.result(recvFuture, Duration.Inf)
-      recvFile
+
+      recvFile:::myFile
     }
 
     def merge(fileList : List[IBigFile]) : List[String] = {
