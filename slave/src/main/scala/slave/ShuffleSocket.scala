@@ -418,7 +418,6 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket
         Await.result(masterPromise.future, Duration.Inf)
 
         val cflist = for (ip <- clientList) yield {
-          Future {
             val p : Promise[String] = Promise[String]()
             socket.checkMasterRequest(ip._1, p)
             val ipString = Await.result(p.future, Duration.Inf)
@@ -426,15 +425,14 @@ class SlaveClientSock(val ipList: List[String], val tempDir : String, val socket
             val c = cf.channel()
             sockPromises(ipString).complete(Success(c))
             c
-          }
         }
 
 
-        val clist = Await.result(all(cflist), Duration.Inf)
+        //val clist = Await.result(all(cflist), Duration.Inf)
         
         socket.sendfinish(masterPromise.future, endPromise)
 
-        for (cf <- clist ) {
+        for (cf <- cflist ) {
           cf.closeFuture().sync()
         }
       } catch {

@@ -98,7 +98,7 @@ package object slave {
       val sortedResult   : List[String]                 = merge(netSortedFiles)
       val unit                                          = reportResult(sortedResult)
 //      val testsortedFile : List[IBigFile]               = testsorted
-      val sortedResult   : IBigFile                     = merge(netSortedFiles)
+//      val sortedResult   : IBigFile                     = merge(netSortedFiles)
     }
   }
 }
