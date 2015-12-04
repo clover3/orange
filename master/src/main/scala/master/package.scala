@@ -25,9 +25,10 @@ import scala.annotation.tailrec
 package object master {
 
   type slaveID = Int
-  var sampleEnd = false
 
-  class Buf2Decode(val LOG : Log, val id : Int, val sockPromises : Map[slaveID, Promise[Unit]], val finishPromises : Map[slaveID, Promise[Unit]], val ipList : Map[String, slaveID]) extends ByteToMessageDecoder {
+  var Iplist : Map[String, slaveID] = Map.empty // save IPs from
+  class Buf2Decode(val LOG : Log, val id : Int, val sockPromises : Map[slaveID, Promise[Unit]], val finishPromises : Map[slaveID, Promise[Unit]]) extends ByteToMessageDecoder {
+  var sampleEnd = false
     override def decode(channelHandlerContext: ChannelHandlerContext, byteBuf: ByteBuf, list: util.List[AnyRef]): Unit = {
       val expectLen = totalSampleKeyPerSlave*10 + 8
       if (sampleEnd) {
@@ -42,7 +43,7 @@ package object master {
             LOG.info("recvSlaveRequest FN id : " + id)
             return
           }
-          else if(byteBuf.readableBytes() > 16) {
+          else {
             var s = ""
             var check2 = false
             while (check != 0xa && byteBuf.readableBytes() > 0) {
@@ -52,14 +53,19 @@ package object master {
                 check2 = true
             }
             if (check2 == true) {
-              sockPromises(ipList(s)).future onSuccess {
-                case u =>
-                  val buffer = ByteBuffer.allocate(15)
-                  buffer.put(s.getBytes())
-                  buffer.flip()
-                  val buf = Unpooled.wrappedBuffer(buffer)
-                  channelHandlerContext.writeAndFlush(buf)
-                  LOG.info("Send S " + s + " ->" + id)
+              if(Iplist.contains(s)) {
+                sockPromises(Iplist(s)).future onSuccess {
+                  case u =>
+                    val buffer = ByteBuffer.allocate(15)
+                    buffer.put(s.getBytes())
+                    buffer.flip()
+                    val buf = Unpooled.wrappedBuffer(buffer)
+                    channelHandlerContext.writeAndFlush(buf)
+                    LOG.info("Send S " + s + " ->" + id)
+                }
+              }
+              else {
+                byteBuf.resetReaderIndex()
               }
             }
             else {
@@ -108,7 +114,6 @@ package object master {
     val id2SlaveByteBuf : Map[slaveID, Promise[ByteBuffer]] = (for(i <- 0 until slaveNum) yield {
       (i, Promise[ByteBuffer]())
     }).toMap
-    var Iplist : Map[String, slaveID] = Map.empty // save IPs from
     val port : Int = 5959
     def myIp : String = InetAddress.getLocalHost().getHostAddress()
     val sockPromises: Map[slaveID, Promise[Unit]] =
@@ -132,7 +137,7 @@ package object master {
             sockPromises(acceptNum).complete(Success(()))
             Iplist = Iplist + (ip -> acceptNum)
             val cp : ChannelPipeline = c.pipeline()
-            cp.addLast(new Buf2Decode(LOG, acceptNum, sockPromises, finishPromises, Iplist))
+            cp.addLast(new Buf2Decode(LOG, acceptNum, sockPromises, finishPromises))
             cp.addLast(new ServerHandler(acceptNum, id2SlaveByteBuf))
             acceptNum = acceptNum + 1
           }
