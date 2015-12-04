@@ -6,7 +6,6 @@ import common.future._
 
 import slave.SlaveConfig.Config
 import slave.merger._
-import slave.{ConcatFile, BigOutputFile, IBigFile}
 import slave.Record._
 
 import scala.annotation.tailrec
@@ -28,7 +27,7 @@ package object merger {
 
   // Phase 2 of the sorting process
   trait ChunkMerger {
-    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit
+    def MergeBigChunk(sortedChunks: List[IBigFile]): List[String]
   }
 
   // TODO OS might not keep pages of the files, It might be better to read sequence of data
@@ -46,7 +45,7 @@ package object merger {
       }
     }
 
-    def MergeWithPQ(sortedChunks: List[IBigFile]): Unit = {
+    def MergeWithPQ(sortedChunks: List[IBigFile]): BigOutputFile = {
       val name = getOutName()
       val output: BigOutputFile = new BigOutputFile(name)
 
@@ -113,8 +112,9 @@ package object merger {
       output
     }
 
-    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit = {
-       MergeWithPQ(sortedChunks)
+    def MergeBigChunk(sortedChunks: List[IBigFile]): List[String] = {
+       val outfile = MergeWithPQ(sortedChunks)
+      List(outfile.outputPath)
     }
 
     def MergeSimple(sortedChunks: List[IBigFile]): IBigFile = {
@@ -198,13 +198,14 @@ package object merger {
       rearrange(chunks.map(split))
     }
 
-    def MergeBigChunk(sortedChunks: List[IBigFile]): Unit = {
+    def MergeBigChunk(sortedChunks: List[IBigFile]): List[String] = {
       val merger = new SingleThreadMerger(outputdir);
       val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)
       })
-      (Await.result(all(futureList), Duration.Inf))
+      val fileList :List[List[String]] = (Await.result(all(futureList), Duration.Inf))
+      fileList.flatten
     }
   }
 }

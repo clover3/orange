@@ -75,7 +75,7 @@ class ByteConsumer(val tempDir : String) {
   def resetSize(s : Int) : Unit = {headFileSize = s}
   def setFileTotalLen(s: Int) : Unit = {
     FileTotalLen = s
-    init.complete(Success(0))
+    init.complete(Success())
   }
   def get2BigfileList(): List[(Int,BigOutputFile)] = outBigfileList
   def getFileTotalLen(): Int = FileTotalLen

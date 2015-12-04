@@ -73,9 +73,12 @@ package object slave {
       slaveSock.death()
     }
 
-    def merge(fileList : List[IBigFile]) : Unit = {
+    def merge(fileList : List[IBigFile]) : List[String] = {
       val merger : ChunkMerger = new SingleThreadMerger(outputDir)
       merger.MergeBigChunk(fileList)
+    }
+    def reportResult(fileList: List[String]) = {
+      fileList.foreach(x => println(x))
     }
 
     def run() = {
@@ -83,7 +86,8 @@ package object slave {
       val slaveSock      : newShuffleSock               = newShuffleSock(partitions, tempDir, socket)
       val sortedFile     : List[Future[IBigFile]]       = sort
       val netSortedFiles : List[IBigFile]               = shuffle(sortedFile, partitions, slaveSock)
-      val sortedResult   : Unit                         = merge(netSortedFiles)
+      val sortedResult   : List[String]                 = merge(netSortedFiles)
+      val unit                                          = reportResult(sortedResult)
     }
   }
 }

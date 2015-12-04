@@ -568,7 +568,7 @@ trait IOutputFile {
   def close()
 }
 
-class BigOutputFile(outputPath: String) extends  IOutputFile {
+class BigOutputFile(val outputPath: String) extends  IOutputFile {
   val cacheSize = 10000
   val cachedRecord: MutableList[BRecord] = MutableList.empty
   val memoryMappedFile = {
