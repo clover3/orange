@@ -37,7 +37,13 @@ package object master {
         else {
           byteBuf.markReaderIndex()
           var check = byteBuf.readByte()
-          if(check == 70) {
+          if(check == 53) {
+            byteBuf.readBytes(2)
+            finishPromises(id).complete(Success(()))
+            LOG.info("recvSlaveRequest FN id : " + id)
+            return
+          }
+          else if(check == 70) {
             byteBuf.readBytes(2)
             finishPromises(id).complete(Success(()))
             LOG.info("recvSlaveRequest FN id : " + id)
@@ -187,7 +193,7 @@ package object master {
       println("sorting key done")
       pSeq.toList
     }
-    
+
 
     // comment
     //send partitions for each slaves (Partitions -> buffer)

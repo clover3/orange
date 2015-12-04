@@ -369,7 +369,7 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket
           })
         val cf: ChannelFuture = bs.bind(port).sync()
         val cfchannel = cf.channel()
-        masterPromise.complete(Success(()))
+        socket.sendok(masterPromise)
         cfchannel.closeFuture().sync()
       } catch {
         case e: Throwable => e.printStackTrace()
@@ -380,7 +380,7 @@ class SlaveServerSock(val ipList: List[String], val tempDir : String, val socket
       }
     }
     else {
-      masterPromise.complete(Success(()))
+      socket.sendok(masterPromise)
     }
   }
 }
