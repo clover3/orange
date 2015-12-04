@@ -1,7 +1,7 @@
 package slave
 
 import java.io.File
-import java.net.InetAddress
+import java.net.{NetworkInterface, InetAddress}
 import java.nio.ByteBuffer
 import io.netty.bootstrap.{ServerBootstrap, Bootstrap}
 import io.netty.buffer.ByteBuf
@@ -16,6 +16,7 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
 import slave.Record._
 import common.typedef._
+import scala.collection.JavaConversions._
 import common.future._
 import slave.socket.PartitionSocket
 
@@ -93,7 +94,21 @@ trait ShuffleSocket {
     basePort = basePort + 1; (ip, basePort)
   }
   }
-  val myIp: String = InetAddress.getLocalHost.getHostAddress.toIPList.toIPString
+  def getIPv4LocalAddress() : List[List[Int]] = {
+    val b = NetworkInterface.getNetworkInterfaces()
+    val listInterface = b.toList
+    val listAddr = listInterface.map(i=>i.getInterfaceAddresses().toList).flatten
+    val listIPv4Addr = listAddr.map(a=> a.getAddress().getAddress()).filter(addr => addr.size==4)
+    def toIntArray(bArray:Array[Byte]):List[Int] = { bArray.map(b => b.toInt & 0xFF).toList }
+    listIPv4Addr.map(toIntArray)
+  }
+  lazy val myIp: String = {
+    val ipL = (getIPv4LocalAddress().map(_.toIPString)).filter{case ip => ipList.exists(_ == ip)}
+    if(ipL.size == 1)
+      ipL.head
+    else
+      throw new NoSuchElementException("ipLsize isn't 1")
+  }
   lazy val (serverList, cList): (List[(String, Int)], List[(String, Int)]) = ipPortList.span(_._1 != myIp)
   lazy val myIpPort: (String, Int) = cList.head
   lazy val clientList = cList.tail
