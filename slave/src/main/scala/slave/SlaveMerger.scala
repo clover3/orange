@@ -114,8 +114,8 @@ package object merger {
         output.appendRecord(pq.getMin())
         if (n % unit == 0) {
           printProgress(n)
-          n = n + 1
         }
+        n = n + 1
       }
         output.close()
         output
