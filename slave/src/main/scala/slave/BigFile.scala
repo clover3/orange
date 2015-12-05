@@ -175,8 +175,8 @@ class SingleFile(name : String) extends IBigFileWithCache {
   lazy val numOfRecords: Int = rafbuf.limit().toInt / 100
   // get i'th record
   def getRecord(i: Int): BRecord = {
-    //getRecordDirect(i)
-    getRecordByCached(i)
+    getRecordDirect(i)
+    //getRecordByCached(i)
   }
 
   def getRecordByCached(i: Int): BRecord = {

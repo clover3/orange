@@ -1,5 +1,7 @@
 package slave
 
+import java.io.{FileNotFoundException, File}
+
 import org.scalatest.FunSuite
 import common.future._
 import slave.merger.{DualThreadMerger, ChunkMerger, SingleThreadMerger}
@@ -118,6 +120,18 @@ class SorterSuite extends FunSuite {
     val (_, timeMerge) = profile{ merger.MergeBigChunk(sortedChunks) }
 
     println("sort  time(ms) :"+ timeSort)
+    println("merge time(ms) :"+ timeMerge)
+  }
+
+  test("Merge only"){
+    def testsorted = {
+      val d = new File(tempDir)
+      d.listFiles.filter(_.isFile).toList.map {
+        case f => new SingleFile(tempDir + "/" + f.getName)
+      }
+    }
+    val merger: ChunkMerger = new DualThreadMerger(".")
+    val (_, timeMerge) = profile{ merger.MergeBigChunk(testsorted) }
     println("merge time(ms) :"+ timeMerge)
   }
 
