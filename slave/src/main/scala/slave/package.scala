@@ -8,6 +8,7 @@ import slave.merger.{SingleThreadMerger, ChunkMerger}
 import slave.sorter.SlaveSorter
 import slave.Sampler._
 import slave.socket._
+import slave.util._
 
 
 import scala.concurrent.{Promise, Future, Await}
@@ -96,6 +97,7 @@ package object slave {
       merger.MergeBigChunk(fileList)
     }
     def reportResult(fileList: List[String]) = {
+      println("Sorted Files :")
       fileList.foreach(x => println(x))
     }
 
@@ -107,13 +109,16 @@ package object slave {
     }
 
     def run() = {
-      val partitions     : Partitions                   = getPartition
-      val sortedFile     : List[Future[IBigFile]]       = sort
-      val netSortedFiles : List[IBigFile]               = shuffle(sortedFile, partitions)
-      val sortedResult   : List[String]                 = merge(netSortedFiles)
-      val unit                                          = reportResult(sortedResult)
-//      val testsortedFile : List[IBigFile]               = testsorted
-//      val sortedResult   : IBigFile                     = merge(netSortedFiles)
+      val (_,time) = profile {
+        val partitions: Partitions = getPartition
+        val sortedFile: List[Future[IBigFile]] = sort
+        val netSortedFiles: List[IBigFile] = shuffle(sortedFile, partitions)
+        val sortedResult: List[String] = merge(netSortedFiles)
+        val unit = reportResult(sortedResult)
+        //      val testsortedFile : List[IBigFile]               = testsorted
+        //      val sortedResult   : IBigFile                     = merge(netSortedFiles)
+      }
+      println("Slave operation completed. Time Elapsed(ms) : " + time)
     }
   }
 }

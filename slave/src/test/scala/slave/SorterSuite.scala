@@ -4,7 +4,7 @@ import java.io.{FileNotFoundException, File}
 
 import org.scalatest.FunSuite
 import common.future._
-import slave.merger.{DualThreadMerger, ChunkMerger, SingleThreadMerger}
+import slave.merger.{MultiThreadMerger, ChunkMerger, SingleThreadMerger}
 import slave.sorter._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -91,7 +91,7 @@ class SorterSuite extends FunSuite {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathServerBig)
     val rs:ResourceChecker = new ResourceChecker()
-    val merger: ChunkMerger = new DualThreadMerger(".")
+    val merger: ChunkMerger = new MultiThreadMerger(".")
     val sorter = new SingleThreadSorter(rs, tempDir)
 
     // operate on
@@ -109,7 +109,7 @@ class SorterSuite extends FunSuite {
     //val input: IBigFile = new ConstFile
     val input: IBigFile = new MultiFile(pathServerBig)
     val rs:ResourceChecker = new ResourceChecker()
-    val merger: ChunkMerger = new DualThreadMerger(".")
+    val merger: ChunkMerger = new MultiThreadMerger(".")
     val sorter = new MultiThreadSorter(rs, tempDir)
 
     // operate on
@@ -130,7 +130,7 @@ class SorterSuite extends FunSuite {
         case f => new SingleFile(tempDir + "/" + f.getName)
       }
     }
-    val merger: ChunkMerger = new DualThreadMerger(".")
+    val merger: ChunkMerger = new MultiThreadMerger(".")
     val (_, timeMerge) = profile{ merger.MergeBigChunk(testsorted) }
     println("merge time(ms) :"+ timeMerge)
   }

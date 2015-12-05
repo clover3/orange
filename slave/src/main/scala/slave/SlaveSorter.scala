@@ -248,7 +248,6 @@ package object sorter {
     def run(inputDirs: List[String], tempDir : String): List[Future[IBigFile]] = {
       // initializing structs
       val input: List[IBigFile] = inputDirs.map(d => new MultiFile(List(d)))
-      //val input : IBigFile = new ConstFile
       val rs:ResourceChecker = new ResourceChecker()
       val sorttempDir = tempDir + "/" + "sorted"
       val d = new File(sorttempDir)

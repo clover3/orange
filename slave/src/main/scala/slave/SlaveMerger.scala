@@ -172,7 +172,7 @@ package object merger {
       }
   }
 
-  class DualThreadMerger(val outputdir : String) extends ChunkMerger {
+  class MultiThreadMerger(val outputdir : String) extends ChunkMerger {
     var d = new File(outputdir)
     if (!d.exists)
       d.mkdir()
@@ -208,7 +208,7 @@ package object merger {
     }
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): List[String] = {
-      val merger = new SingleThreadMerger(outputdir);
+      val merger = new MultiThreadMerger(outputdir);
       val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)
