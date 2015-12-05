@@ -252,7 +252,7 @@ package object sorter {
       val sorttempDir = tempDir + "/" + "sorted"
       val d = new File(sorttempDir)
       if(!d.exists)
-        d.mkdir()
+        d.mkdirs()
       val sorter: ChunkSorter = new MultiThreadSorter(rs, sorttempDir)
       // operate on
       sorter.generateSortedChunks(input)
