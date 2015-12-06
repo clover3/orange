@@ -128,7 +128,14 @@ package object master {
       (for(i <- 0 until slaveNum) yield { (i, Promise[Unit]())}).toMap
     val parentGroup = new NioEventLoopGroup(1)
     val childGroup = new NioEventLoopGroup(slaveNum)
-    var acceptNum = 0
+    var acceptN = 0
+    def getacceptNum() = {
+      this.synchronized{
+        val res = acceptN
+        acceptN = acceptN + 1
+        res
+      }
+    }
     def start() {
       try {
         val bs : ServerBootstrap = new ServerBootstrap()
@@ -137,6 +144,7 @@ package object master {
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(new ChannelInitializer[SocketChannel] {
           override def initChannel(c: SocketChannel): Unit = {
+            val acceptNum = getacceptNum()
             if(acceptNum == slaveNum)
               return
             val ip = c.remoteAddress().toString.toIPList.toIPString
@@ -146,7 +154,6 @@ package object master {
             val cp : ChannelPipeline = c.pipeline()
             cp.addLast(new Buf2Decode(LOG, acceptNum, sockPromises, finishPromises))
             cp.addLast(new ServerHandler(acceptNum, id2SlaveByteBuf))
-            acceptNum = acceptNum + 1
           }
         })
         val cf : ChannelFuture = bs.bind(port).sync()
