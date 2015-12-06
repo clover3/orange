@@ -196,8 +196,9 @@ class SingleFile(name : String) extends IBigFileWithCache {
     val pos = recordSize * i
     val nRecord = min(400, numOfRecords - i)
     val buf: Array[Byte] = new Array[Byte](recordSize * nRecord)
-    rafbuf.position(pos)
-    rafbuf.get(buf)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
+    drafbuf.get(buf)
 
     val seq = for (i <- Range(0, nRecord)) yield {
       val st = i * recordSize
@@ -224,8 +225,9 @@ class SingleFile(name : String) extends IBigFileWithCache {
     //set position
     val pos = (totalOffset) * i
     val buf: Array[Byte] = new Array[Byte](lineSize)
-    rafbuf.position(pos)
-    rafbuf.get(buf)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
+    drafbuf.get(buf)
 
     (buf.take(10), buf.drop(10))
   }
@@ -239,9 +241,10 @@ class SingleFile(name : String) extends IBigFileWithCache {
     val lineSize: Int = 100
     val pos = st * totalOffset
     val buf: Array[Byte] = new Array[Byte](lineSize)
-    rafbuf.position(pos)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
     val recordVector = for (i <- Range(st, ed)) yield {
-      rafbuf.get(buf)
+      drafbuf.get(buf)
       (buf.take(10), buf.drop(10))
     }
     recordVector.toVector
@@ -329,8 +332,9 @@ class RecordCache2(name : String) {
   def readFile(pos:Int ,loc:Int) : Vector[BRecord]={
     val nRecord = min(blockSize, numOfRecords-loc)
     val buf :Array[Byte] = new Array[Byte](lineSize * nRecord)
-    rafbuf.position(pos)
-    rafbuf.get(buf)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
+    drafbuf.get(buf)
     val seq = for( i <- Range(0, nRecord) ) yield {
       val st = i * lineSize
       val ed = st + lineSize
@@ -479,8 +483,9 @@ class SingleFilePreFetch(name : String) extends IBigFile {
     val lineSize: Int = 100
     val pos = (totalOffset) * i
     val buf: Array[Byte] = new Array[Byte](lineSize)
-    rafbuf.position(pos)
-    rafbuf.get(buf)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
+    drafbuf.get(buf)
 
     (buf.take(10), buf.drop(10))
   }
@@ -494,9 +499,10 @@ class SingleFilePreFetch(name : String) extends IBigFile {
     val lineSize: Int = 100
     val pos = st * totalOffset
     val buf: Array[Byte] = new Array[Byte](lineSize)
-    rafbuf.position(pos)
+    val drafbuf = rafbuf.duplicate()
+    drafbuf.position(pos)
     val recordVector = for (i <- Range(st, ed)) yield {
-      rafbuf.get(buf)
+      drafbuf.get(buf)
       (buf.take(10), buf.drop(10))
     }
     recordVector.toVector
