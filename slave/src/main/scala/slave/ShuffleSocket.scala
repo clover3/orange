@@ -16,7 +16,6 @@ import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
 
 import slave.Record._
-import slave.ProgressLogger
 import slave.socket.PartitionSocket
 
 import common.typedef._
@@ -54,14 +53,16 @@ class ByteConsumer(val tempDir : String) {
       outBigfileList.head._2.close()
       startedNewFile = false
       totalFileNum += 1
-      val msg = sockIp + " - TotalFile ||" + "=" * totalFileNum + ">" + " " * (FileTotalLen - totalFileNum) + "||"
+      val msg = sockIp + " - Recieved ||" + "=" * totalFileNum + ">" + " " * (FileTotalLen - totalFileNum) + "||"
       ProgressLogger.updateLog(sockIp, msg)
     }
 
     if( init.isCompleted ){
       if(totalFileNum == FileTotalLen )
       {
-        println("I'm finished  (ip, totalFileNum, FileTotalLen) : " + sockIp)
+        //println("I'm finished  (ip, totalFileNum, FileTotalLen) : " + sockIp)
+        val msg = sockIp + " - [Receive Done]"
+        ProgressLogger.updateLog(sockIp, msg)
         p.complete( Success(outBigfileList.map(_._2)) )
       }
     }

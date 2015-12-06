@@ -106,7 +106,8 @@ package object merger {
       def printProgress(nMerged: Int) = {
         val nDone = nMerged / unit
         val nRemain = nFinal - nDone
-        println(name + " : " + "=" * nDone + " " * nRemain + "|")
+        val msg = name + " : " + "=" * nDone + " " * nRemain + "|"
+        ProgressLogger.updateLog(name, msg)
       }
 
       var n = 0

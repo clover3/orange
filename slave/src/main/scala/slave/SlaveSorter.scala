@@ -2,7 +2,6 @@ package slave
 
 import common.future._
 
-import slave.ProgressLogger
 import slave.Record._
 import slave.util.profile
 import slave.SlaveConfig._
@@ -260,7 +259,7 @@ package object sorter {
     def updateLog() ={
       val one = total / 100
       val percent = (complete / one).toInt
-      val msg = "Piece Sort : " + "-" * percent + " " * (100-percent) + "|"
+      val msg = "Sort Progress || " + "=" * percent + " " * (100-percent) + "||"
       ProgressLogger.updateLog("sort", msg)
     }
 
