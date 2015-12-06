@@ -2,6 +2,7 @@ package slave
 
 import common.future._
 
+import slave.ProgressLogger
 import slave.Record._
 import slave.util.profile
 import slave.SlaveConfig._
@@ -29,6 +30,8 @@ package object sorter {
 
   // Phase 1 of the sorting process
   trait ChunkSorter {
+    val namePrefix = "sortPiece"
+
     def generateSortedChunks(inputs: List[IBigFile]): List[Future[IBigFile]]
 
     //  TODO :[Optimization] change sort to in-memory sort.
@@ -112,10 +115,11 @@ package object sorter {
           val (dataUnsorted,t1)   = profile{ read }
           val (data,t2)           = profile{ sort(dataUnsorted) }
           val (out,t3)            = profile{ write(data) }
-          println("Completed Sorting %s : Elapsed %d".format(outfileName, t1+t2+t3))
           out.toInputFile
         }
-        Await.result(f, Duration.Inf)
+        val output = Await.result(f, Duration.Inf)
+        SortLogger.addComplete(ed-st)
+        output
       }
     }
 
@@ -134,7 +138,8 @@ package object sorter {
       val mem = rs.remainingMemory
       val blockSize = config.sortBlockSize
       println("remaining memory :"+mem + " blockSize:"+ blockSize)
-      println("Supporterable threads : " + mem / ( blockSize * 100 * 2))
+      val maxSupport = mem / ( blockSize * 100 * 2)
+      println("Supporterable threads : " + maxSupport)
 
       val namePrefix = "sortedChunk"
       val names = for( i <- Range(0,files.size)) yield { namePrefix+ i + "-"}
@@ -236,20 +241,40 @@ package object sorter {
       val mem = rs.remainingMemory
       println("Mem : " + mem)
       val blockSize = 327680
-      def outPath(implicit config:Config) = config.tempPath
-      val tasks = inputs.map(input => divideChunk(input, blockSize, outPath))
+      val tasks = inputs.map(input => divideChunk(input, blockSize, namePrefix))
       val tasksScheduled = schedule(tasks)
       tasksScheduled.map( t => Future{sortChunk(t)} ).toList
     }
   }
 
+  object SortLogger{
+    var total:Long = 0
+    var complete:Long = 0
+    def setTotal(recTotal:Long): Unit = {
+      total = recTotal
+    }
+    def addComplete(recCount :Int) ={
+      complete = complete + recCount.toLong
+      updateLog()
+    }
+    def updateLog() ={
+      val one = total / 100
+      val percent = (complete / one).toInt
+      val msg = "Piece Sort : " + "-" * percent + " " * (100-percent) + "|"
+      ProgressLogger.updateLog("sort", msg)
+    }
+
+  }
 
   class SlaveSorter {
+    val nameSortDir = "SortedTemp"
+
     def run(inputDirs: List[String], tempDir : String): List[Future[IBigFile]] = {
       // initializing structs
       val input: List[IBigFile] = inputDirs.map(d => new MultiFile(List(d)))
-      val rs:ResourceChecker = new ResourceChecker()
-      val sorttempDir = tempDir + "/" + "sorted"
+      val rs = new ResourceChecker()
+      SortLogger.setTotal(input.foldRight(0){(file, sum)=> file.numOfRecords + sum})
+      val sorttempDir = tempDir + "/" + nameSortDir
       val d = new File(sorttempDir)
       if(!d.exists)
         d.mkdirs()

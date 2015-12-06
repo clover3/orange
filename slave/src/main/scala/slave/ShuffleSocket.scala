@@ -14,11 +14,14 @@ import io.netty.channel.socket.nio.{NioSocketChannel, NioServerSocketChannel}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import org.apache.commons.logging.LogFactory
+
 import slave.Record._
+import slave.ProgressLogger
+import slave.socket.PartitionSocket
+
 import common.typedef._
 import scala.collection.JavaConversions._
 import common.future._
-import slave.socket.PartitionSocket
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -26,24 +29,6 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Try}
 import scala.async.Async.{async, await}
 
-
-
-object ProgressLogger{
-  var array :List[(String,String)] = Nil
-  def updateLog(key : String, log :String)  = {
-    array = array.map{
-      t => if( t._1 == key) (key, log)
-      else t
-    }
-  if( !array.exists(t => t._1 == key) )
-    array = array :+ (key,log)
-  printLog()
-  }
-  def printLog() = {
-    println(" <  Progress  >")
-    array.foreach(t => println(t._1 + " : " + t._2) )
-  }
-}
 
 // given IP and bytes, write downs data into IBigFile
 class ByteConsumer(val tempDir : String) {
