@@ -1,11 +1,9 @@
 327680
 4
-sortedChunk
 
 # README #
 First line : sort memory block size
 Second line : number of processor to use in multi-thread merge process
-3rd line : temporary output path for sorted chunk
 Remaining lines are ignored.
 
 Block Sizes...
