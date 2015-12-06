@@ -26,6 +26,25 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Try}
 import scala.async.Async.{async, await}
 
+
+
+object ProgressLogger{
+  var array :List[(String,String)] = Nil
+  def updateLog(key : String, log :String)  = {
+    array = array.map{
+      t => if( t._1 == key) (key, log)
+      else t
+    }
+  if( !array.exists(t => t._1 == key) )
+    array = array :+ (key,log)
+  printLog()
+  }
+  def printLog() = {
+    println(" <  Progress  >")
+    array.foreach(t => println(t._1 + " : " + t._2) )
+  }
+}
+
 // given IP and bytes, write downs data into IBigFile
 class ByteConsumer(val tempDir : String) {
   var outBigfileList: List[(Int,BigOutputFile)] = Nil
@@ -50,17 +69,8 @@ class ByteConsumer(val tempDir : String) {
       outBigfileList.head._2.close()
       startedNewFile = false
       totalFileNum += 1
-      print("totalFile " + sockIp + " ||")
-      for(i <- 0 until (FileTotalLen + 1))
-      {
-        if(i < totalFileNum)
-          print("=")
-        else if (i == totalFileNum)
-          print(">")
-        else
-          print(" ")
-      }
-      println("||")
+      val msg = sockIp + " - TotalFile ||" + "=" * totalFileNum + ">" + " " * (FileTotalLen - totalFileNum) + "||"
+      ProgressLogger.updateLog(sockIp, msg)
     }
 
     if( init.isCompleted ){
