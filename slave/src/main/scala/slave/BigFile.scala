@@ -225,11 +225,16 @@ class SingleFile(name : String) extends IBigFileWithCache {
     //set position
     val pos = (totalOffset) * i
     val buf: Array[Byte] = new Array[Byte](lineSize)
+    /*
     val drafbuf = rafbuf.duplicate()
     drafbuf.position(pos)
     drafbuf.get(buf)
-
-    (buf.take(10), buf.drop(10))
+    */
+   this.synchronized{
+     rafbuf.position(pos)
+     rafbuf.get(buf)
+   }
+   (buf.take(10), buf.drop(10))
   }
 
   // return collection of records
