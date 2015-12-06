@@ -4,7 +4,7 @@ import java.io._
 
 import common.typedef._
 import common.future._
-import slave.merger.{SingleThreadMerger, ChunkMerger}
+import slave.merger._
 import slave.sorter.SlaveSorter
 import slave.Sampler._
 import slave.socket._
@@ -93,7 +93,7 @@ package object slave {
     }
 
     def merge(fileList : List[IBigFile]) : List[String] = {
-      val merger : ChunkMerger = new SingleThreadMerger(outputDir)
+      val merger : ChunkMerger = new MultiThreadMerger(outputDir)
       merger.MergeBigChunk(fileList)
     }
     def reportResult(fileList: List[String]) = {

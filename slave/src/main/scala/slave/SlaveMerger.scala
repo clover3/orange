@@ -204,11 +204,12 @@ package object merger {
         val intervals = Splitter.makePartitionsListFromKey(file, keys)
         intervals.map(t => new PartialFile(file,t._1, t._2) )
       }
+
       rearrange(chunks.map(split))
     }
 
     def MergeBigChunk(sortedChunks: List[IBigFile]): List[String] = {
-      val merger = new MultiThreadMerger(outputdir);
+      val merger = new SingleThreadMerger(outputdir);
       val lst: List[List[IBigFile]] = divide(sortedChunks)
       val futureList = lst.map(x => Future {
         merger.MergeBigChunk(x)
