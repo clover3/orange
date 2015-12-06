@@ -125,6 +125,7 @@ class SorterSuite extends FunSuite {
 
   test("Merge only"){
     def testsorted = {
+      val tempDir = "/scratch1/Orange/mergeTest"
       val d = new File(tempDir)
       d.listFiles.filter(_.isFile).toList.map {
         case f => new SingleFile(tempDir + "/" + f.getName)
