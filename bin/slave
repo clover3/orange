@@ -26,7 +26,7 @@ if __name__ == '__main__' :
   slave_exc = "java -jar "+os.getcwd()+ "/slave/target/scala-2.11/orangeSlave-assembly-0.1.0.jar"
 
   if(test is not None) :
-    argument = " 192.168.10.200:5959 -I /scratch1/Orange/30GB -T /scratch1/Orange/temp" + test[0] + " -O /scratch1/Orange/outdir" + test[0]
+    argument = " 192.168.10.200:5959 -I /scratch1/Orange/inputdir1 -T /scratch1/Orange/temp" + test[0] + " -O /scratch1/Orange/outdir" + test[0]
     excute(slave_exc + argument)
 
   else :
