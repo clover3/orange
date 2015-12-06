@@ -14,6 +14,6 @@ object ProgressLogger{
   def printLog() = {
     println(Console.CYAN + " <  Progress  >")
     array.foreach(t => println(t._2) )
-    print(Console.RESET)
+    println(Console.RESET)
   }
 }

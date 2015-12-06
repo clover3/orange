@@ -47,6 +47,19 @@ package object slave {
         result map f
       }
       def splitAndSend(sortedFile : List[Future[IBigFile]]) : Future[List[Unit]] = {
+        class SendLog(val total:Int){
+          val id = "Send"
+          var completed = 0
+          def getMsg() = "Send ||" + "=" * completed + " " *(total-completed) + "||"
+          val unit = updateLog()
+          def updateLog() = ProgressLogger.updateLog(id, getMsg())
+          def addComplete() = {
+            completed = completed + 1
+            updateLog()
+          }
+        }
+        val logger = new SendLog(sortedFile.size)
+
         val fileLen = sortedFile.size
         val sendIpList = ipList.filter { _ != myIp}
         sendIpList foreach { slaveSock.sendSize(_, fileLen) }
@@ -56,7 +69,7 @@ package object slave {
             case Success(file) =>
               val splitList : List[(String, Int, Int)] = splitFile(file).filter{ _._1 != myIp}
               splitList foreach  {data => slaveSock.sendData(data._1, file, data._2, data._3)}
-              println("send data")
+              logger.addComplete()
               p.complete(Success())
             case Failure(e) => println("I'm in fail " + e.getMessage)
           }
