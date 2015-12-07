@@ -53,10 +53,10 @@ class ByteConsumer(val tempDir : String) {
       outBigfileList.head._2.close()
       startedNewFile = false
       val one = FileTotalLen
-      val percent = ((totalFileNum / one) * 100).toInt
+      val percent = ((totalFileNum.toFloat / one.toFloat) * 100).toInt
       totalFileNum += 1
       val msg = sockIp + " - Recieved ||" + "=" * percent + ">" + " " * (100 - percent) + "||"
-      ProgressLogger.updateLog(sockIp, msg)
+      ProgressLogger.updateLog(sockIp, msg, 1)
     }
 
     if( init.isCompleted ){
@@ -64,7 +64,7 @@ class ByteConsumer(val tempDir : String) {
       {
         //println("I'm finished  (ip, totalFileNum, FileTotalLen) : " + sockIp)
         val msg = sockIp + " - [Receive Done]"
-        ProgressLogger.updateLog(sockIp, msg)
+        ProgressLogger.updateLog(sockIp, msg, 0)
         p.complete( Success(outBigfileList.map(_._2)) )
       }
     }

@@ -107,7 +107,7 @@ package object merger {
         val nDone = nMerged / unit
         val nRemain = nFinal - nDone
         val msg = name + " : " + "=" * nDone + " " * nRemain + "|"
-        ProgressLogger.updateLog(name, msg)
+        ProgressLogger.updateLog(name, msg, 1)
       }
 
       var n = 0
