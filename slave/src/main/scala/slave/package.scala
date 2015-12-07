@@ -50,8 +50,8 @@ package object slave {
         class SendLog(val total:Int){
           val id = "Send"
           var completed = 0
-          val one = total / 100
-          val percent = (completed / one).toInt
+          val one = total
+          val percent = ((completed / one) * 100).toInt
           def getMsg() = "Send ||" + "=" * percent + " " * (100-percent) + "||"
           val unit = updateLog()
           def updateLog() = ProgressLogger.updateLog(id, getMsg())
