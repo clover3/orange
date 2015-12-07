@@ -1,5 +1,6 @@
 package slave
 import scala.Console._
+
 object ProgressLogger{
   var array :List[(String,String)] = Nil
   def updateLog(key : String, log :String)  = {
@@ -12,6 +13,7 @@ object ProgressLogger{
     printLog()
   }
   def printLog() = {
+    print("\033[2J")
     println(Console.CYAN + " <  Progress  >")
     array.foreach(t => println(t._2) )
     println(Console.RESET)
