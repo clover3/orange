@@ -259,8 +259,14 @@ package object sorter {
     def updateLog() ={
       val one = total / 100
       val percent = (complete / one).toInt
-      val msg = "Sort Progress || " + "=" * percent + " " * (100-percent) + "||"
-      ProgressLogger.updateLog("sort", msg)
+      if(percent == 100) {
+        val msg = "Sort Progress || FINISHED! ||"
+        ProgressLogger.updateLog("sort", msg, 0)
+      }
+      else {
+        val msg = "Sort Progress || " + "=" * percent + " " * (100 - percent) + "||"
+        ProgressLogger.updateLog("sort", msg, 1)
+      }
     }
 
   }
