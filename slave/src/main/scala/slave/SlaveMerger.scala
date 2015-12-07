@@ -118,6 +118,8 @@ package object merger {
         }
         n = n + 1
       }
+        val msg = name + " : " + "[ FINISHED! ]"
+        ProgressLogger.updateLog(name, msg, 0)
         output.close()
         output
     }

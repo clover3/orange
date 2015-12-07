@@ -16,7 +16,7 @@ object ProgressLogger{
     print("\033[2J")
     println(Console.BLUE + " <  Progress  >")
     array.foreach(t =>
-      if(t._3 == 0)
+      if(t._3 == 1)
         println(Console.RED + t._2)
       else
         println(Console.CYAN + t._2)

@@ -51,7 +51,7 @@ package object slave {
           val id = "Send"
           var completed = 0
           val one = total
-          val percent = ((completed.toFloat / one.toFloat) * 100).toInt
+          def percent = ((completed.toFloat / one.toFloat) * 100).toInt
           def getMsg() = if (percent == 100) "[Send Done]" else "Send ||" + "=" * percent + " " * (100-percent) + "||"
           val unit = updateLog()
           def updateLog() = {
