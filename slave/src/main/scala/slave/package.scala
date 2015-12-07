@@ -52,11 +52,11 @@ package object slave {
           var completed = 0
           val one = total
           def percent = ((completed.toFloat / one.toFloat) * 100).toInt
-          def getMsg() = if (percent == 100) "[Send Done]" else "Send ||" + "=" * percent + " " * (100-percent) + "||"
+          def getMsg() = if (percent == 100) "[Send Done]" else "||" + "=" * percent + " " * (100-percent) + "||"
           val unit = updateLog()
           def updateLog() = {
             val color = if (percent == 100) 0 else 1
-            ProgressLogger.updateLog(id, getMsg(), color)
+            ProgressLogger.updateLog(id, id, getMsg(), color)
           }
           def addComplete() = {
             completed = completed + 1
