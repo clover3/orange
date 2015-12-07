@@ -1,5 +1,5 @@
 package slave
-
+import scala.Console._
 object ProgressLogger{
   var array :List[(String,String)] = Nil
   def updateLog(key : String, log :String)  = {

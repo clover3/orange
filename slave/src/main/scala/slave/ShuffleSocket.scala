@@ -52,8 +52,10 @@ class ByteConsumer(val tempDir : String) {
     if(end) {
       outBigfileList.head._2.close()
       startedNewFile = false
+      val one = FileTotalLen / 100
+      val percent = (totalFileNum / one).toInt
       totalFileNum += 1
-      val msg = sockIp + " - Recieved ||" + "=" * totalFileNum + ">" + " " * (FileTotalLen - totalFileNum) + "||"
+      val msg = sockIp + " - Recieved ||" + "=" * percent + ">" + " " * (100 - percent) + "||"
       ProgressLogger.updateLog(sockIp, msg)
     }
 
