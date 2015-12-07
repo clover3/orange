@@ -64,7 +64,7 @@ class ByteConsumer(val tempDir : String) {
       if(totalFileNum == FileTotalLen )
       {
         //println("I'm finished  (ip, totalFileNum, FileTotalLen) : " + sockIp)
-        val msg = sockIp + " - [Receive Done]"
+        val msg = "|| FINISHED! ||"
         ProgressLogger.updateLog(sockIp, sockIp, msg, 0)
         p.complete( Success(outBigfileList.map(_._2)) )
       }

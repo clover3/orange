@@ -265,7 +265,7 @@ package object sorter {
         ProgressLogger.updateLog("sort", head, msg, 0)
       }
       else {
-        val msg = "|| " + "=" * percent + " " * (100 - percent) + "||"
+        val msg = "||" + "=" * percent + ">" + " " * (100 - percent) + "||"
         ProgressLogger.updateLog("sort", head, msg, 1)
       }
     }
