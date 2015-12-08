@@ -179,7 +179,10 @@ package object master {
           println(buf)
           parseSampleBuffer(buf)._2
       }.flatten.toArray
-      val ips = Iplist.toList.map{_._1}.toArray
+      val ips = {
+        Await.result(all(id2Slave.toList.map(_._2.future)), Duration.Inf)
+        Iplist.toList.map{_._1}.toArray
+      }
       Sorting.quickSort(keyArray)
       val keyArrLen = keyArray.length
       val ipLen = ips.length
