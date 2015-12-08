@@ -30,7 +30,7 @@ For example
 To run slave, execute the following command
 
 
-`$ slave [MasterIP:port] -I [InputDirectory] -T [TempDirectory] -O [OutputDirectory]`
+`$ slave [MasterIP:port] [-I INPUTDIR [INPUTDIR ...]] [-T TEMPDIR] [-O OUTPUTDIR]`
 
 For example 
 
@@ -41,7 +41,8 @@ Note that
  * Input directory, Temp directory and Output directory must be absolute path.
  * The parent directory of TempDirectory and OutputDirectory must exist.
  * You don't need to make TempDirectory and OutputDirectory directory itself.
-
+ * You can have many Input Directory, but you must have only one Temp Directory and Output Directory
+ 
 ### If you want to execute slave in short command
 
 We add -t option in slave script. you can modify it and use it.
@@ -79,4 +80,4 @@ Having larger block size will results in short processing time in the merge proc
 
 Merge is processed in parallel. However, the number of threads need to be specified prior to the execution. 
 You can specify the degree of parallelism in the merge process. Default value is set to four, which means that 4 concurrent threads will process the merging.
-It is recommended to set this value equal to the number of cores in the machine. 
+It is recommended to set this value equal to the number of cores in the machine.
