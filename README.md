@@ -14,7 +14,7 @@ First, move to orange directory.
 
 Then load the command environment 
 
-`$ source script.sh``
+`$ source script.sh`
 
 ## Running master
 
