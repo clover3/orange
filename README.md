@@ -57,4 +57,26 @@ for example if you type 'slave -t 1' it will execute
 `$ slave 192.168.10.200:5959 -I /scratch1/Orange/inputdir1 -T /scratch1/Orange/temp1 -O /scratch1/Orange/outdir1`
 
 
+### Config File
 
+There is a config file in which you can specify performance paramters.
+
+Config file contains two entry. 
+* Sort block size
+* Number of merge thread
+ 
+#### Sort block size
+
+The first entry specifies the size of the block to be sorted in first sorting phase.
+
+Size of the block is given in number of records. It is recomended to set block size in multiples of single file(327680).
+
+Default value is set to 983040, which is three times the size of single file.
+
+Having larger block size will results in short processing time in the merge process. However, it will require more memory space that you need to allocates more heap space to the program.
+
+#### Number of merge thread 
+
+Merge is processed in parallel. However, the number of threads need to be specified prior to the execution. 
+You can specify the degree of parallelism in the merge process. Default value is set to four, which means that 4 concurrent threads will process the merging.
+It is recommended to set this value equal to the number of cores in the machine. 
